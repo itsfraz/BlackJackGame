@@ -1,4 +1,6 @@
 import React from 'react';
+import { Button } from './ui/button';
+import { motion, AnimatePresence } from "framer-motion";
 
 const CHIPS = [10, 25, 100, 500];
 
@@ -30,22 +32,39 @@ const BettingControls = ({
       {/* Bet Spot Visual (Floating above) */}
       <div className="absolute -top-32 left-1/2 -translate-x-1/2 pointer-events-none z-0">
           <div className="w-24 h-24 rounded-full border-4 border-dashed border-white/10 flex justify-center items-center relative group">
-              {chipStack && chipStack.length > 0 ? (
-                  <div className="relative w-full h-full flex justify-center items-center">
-                      {chipStack.map((val, idx) => (
-                          <div 
-                            key={idx} 
-                            className={`absolute w-16 h-16 rounded-full border-2 border-white/20 shadow-xl ${getChipColor(val)} transition-all duration-300`}
-                            style={{ transform: `translateY(-${idx * 4}px)` }}
-                          ></div>
-                      ))}
-                      <div className="absolute -top-8 w-max px-3 py-1 bg-black/80 rounded-full text-bj-gold font-mono font-bold text-lg border border-bj-gold/30 shadow-[0_0_10px_rgba(255,215,0,0.3)] backdrop-blur-sm">
-                          ${currentBet}
+              <AnimatePresence>
+                  {chipStack && chipStack.length > 0 ? (
+                      <div className="relative w-full h-full flex justify-center items-center">
+                          {chipStack.map((val, idx) => (
+                              <motion.div 
+                                key={`chip-${idx}`} // Use index but with prefix to be safe
+                                initial={{ opacity: 0, y: 300, scale: 0.2 }} // Start from bottom
+                                animate={{ opacity: 1, y: -idx * 4, scale: 1 }} // Stack up
+                                exit={{ opacity: 0, y: 300, scale: 0, transition: { duration: 0.3 } }}
+                                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                className={`absolute w-16 h-16 rounded-full border-2 border-white/20 shadow-xl ${getChipColor(val)}`}
+                              />
+                          ))}
+                          <motion.div 
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            key="total-bet-label"
+                            className="absolute -top-8 w-max px-3 py-1 bg-black/80 rounded-full text-bj-gold font-mono font-bold text-lg border border-bj-gold/30 shadow-[0_0_10px_rgba(255,215,0,0.3)] backdrop-blur-sm z-50 behavior-smooth"
+                          >
+                              ${currentBet}
+                          </motion.div>
                       </div>
-                  </div>
-              ) : (
-                  <span className="text-white/20 text-xs font-bold uppercase tracking-widest animate-pulse">Place Bet</span>
-              )}
+                  ) : (
+                      <motion.span 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }} 
+                        exit={{ opacity: 0 }}
+                        className="text-white/20 text-xs font-bold uppercase tracking-widest animate-pulse"
+                      >
+                        Place Bet
+                      </motion.span>
+                  )}
+              </AnimatePresence>
           </div>
       </div>
 
@@ -93,28 +112,32 @@ const BettingControls = ({
 
           {/* Right: Actions */}
           <div className="flex items-center gap-3 w-full md:w-auto justify-center">
-              <button 
-                className="px-6 py-3 rounded-xl text-gray-400 font-bold text-sm uppercase tracking-wider hover:text-white hover:bg-white/5 transition-all active:scale-95 border border-transparent hover:border-white/10 disabled:opacity-30" 
+              <Button 
+                variant="ghost"
+                className="px-6 py-3 rounded-xl text-gray-400 font-bold text-sm uppercase tracking-wider hover:text-white hover:bg-white/5 disabled:opacity-30 h-auto" 
                 onClick={onClear} 
                 disabled={currentBet === 0 && sideBets.pairs === 0}
               >
                   Clear
-              </button>
-              <button 
-                className="px-6 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40 transition-all active:scale-95 shadow-lg disabled:opacity-30" 
+              </Button>
+              <Button
+                variant="outline" 
+                className="px-6 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40 h-auto disabled:opacity-30" 
                 onClick={onReBet}
               >
                   Re-Bet
-              </button>
+              </Button>
               
               {/* DEAL Button - Dominant */}
-              <button 
-                className="ml-4 px-10 py-3 rounded-xl bg-gradient-to-br from-bj-gold via-yellow-500 to-yellow-600 text-black font-black text-xl uppercase tracking-widest shadow-[0_0_20px_rgba(255,215,0,0.4)] border-t border-yellow-300 hover:shadow-[0_0_30px_rgba(255,215,0,0.6)] hover:-translate-y-1 hover:brightness-110 active:scale-95 active:brightness-90 transition-all disabled:opacity-50 disabled:grayscale disabled:pointer-events-none" 
+              <Button 
+                variant="gold"
+                size="xl"
+                className="ml-4 shadow-[0_0_20px_rgba(255,215,0,0.4)] hover:shadow-[0_0_30px_rgba(255,215,0,0.6)]" 
                 onClick={onDeal} 
                 disabled={currentBet === 0}
               >
                   Deal
-              </button>
+              </Button>
           </div>
 
       </div>

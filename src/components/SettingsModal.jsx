@@ -1,20 +1,27 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "./ui/dialog";
+import { Button } from "./ui/button";
 
 const SettingsModal = ({ isOpen, rules, onUpdateRules, onClose, themeHook }) => {
-    if (!isOpen) return null;
-
     const { preferences, updatePreferences, themes, cardBacks, languages, t } = themeHook;
     const [activeTab, setActiveTab] = React.useState('game');
 
-    return createPortal(
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in text-sans font-sans">
-            <div className="bg-slate-900 border border-white/20 w-full max-w-md rounded-2xl shadow-2xl animate-pop text-white relative flex flex-col max-h-[80vh] overflow-hidden">
+    return (
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="bg-slate-900 border-white/20 text-white max-w-md p-0 overflow-hidden gap-0">
                 
                 {/* Header */}
                 <div className="p-6 border-b border-white/10 bg-black/40 flex justify-between items-center">
-                    <h2 className="text-2xl font-black uppercase tracking-wider">{t('settings')}</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-xl">✕</button>
+                    <DialogTitle className="text-2xl font-black uppercase tracking-wider text-white">{t('settings')}</DialogTitle>
+                    {/* Close button is handled by DialogContent's generic close, but we can add custom if we want to match old UI exactly. 
+                        Radix adds a close button by default in my implementation of DialogContent. */}
                 </div>
 
                 {/* Tabs */}
@@ -33,7 +40,7 @@ const SettingsModal = ({ isOpen, rules, onUpdateRules, onClose, themeHook }) => 
                      </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-left flex flex-col gap-6">
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-left flex flex-col gap-6 max-h-[60vh]">
                     
                     {/* Game Rules Tab */}
                     {activeTab === 'game' && (
@@ -56,18 +63,22 @@ const SettingsModal = ({ isOpen, rules, onUpdateRules, onClose, themeHook }) => 
                             <div className="flex justify-between items-center bg-black/30 p-3 rounded-lg border border-white/5">
                                 <span className="text-sm font-bold uppercase tracking-wide text-gray-300">{t('soft17')}</span>
                                 <div className="flex items-center gap-2 bg-black/40 rounded-lg p-1 border border-white/10">
-                                    <button 
-                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!rules.dealerSoft17 ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
+                                    <Button 
+                                        variant={!rules.dealerSoft17 ? "destructive" : "ghost"}
+                                        size="sm"
                                         onClick={() => onUpdateRules({ dealerSoft17: false })}
+                                        className={!rules.dealerSoft17 ? "bg-red-600 hover:bg-red-700" : "text-gray-500"}
                                     >
                                         {t('stand')}
-                                    </button>
-                                    <button 
-                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${rules.dealerSoft17 ? 'bg-bj-gold text-black shadow-lg' : 'text-gray-500 hover:text-white'}`}
+                                    </Button>
+                                    <Button 
+                                        variant={rules.dealerSoft17 ? "default" : "ghost"}
+                                        size="sm"
                                         onClick={() => onUpdateRules({ dealerSoft17: true })}
+                                        className={rules.dealerSoft17 ? "bg-bj-gold text-black hover:bg-yellow-400" : "text-gray-500"}
                                     >
                                         {t('hit')}
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         </>
@@ -81,13 +92,15 @@ const SettingsModal = ({ isOpen, rules, onUpdateRules, onClose, themeHook }) => 
                                 <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">{t('language')}</label>
                                 <div className="grid grid-cols-3 gap-2">
                                     {languages.map(l => (
-                                        <button 
+                                        <Button 
                                             key={l.code}
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => updatePreferences({ lang: l.code })}
-                                            className={`py-2 rounded border border-white/10 text-xs font-bold uppercase transition-all ${preferences.lang === l.code ? 'bg-bj-gold text-black border-bj-gold' : 'bg-black/40 text-gray-400 hover:bg-white/10'}`}
+                                            className={`border-white/10 ${preferences.lang === l.code ? 'bg-bj-gold text-black border-bj-gold hover:bg-yellow-400' : 'bg-black/40 text-gray-400 hover:bg-white/10 hover:text-white'}`}
                                         >
                                             {l.name}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                             </div>
@@ -131,35 +144,40 @@ const SettingsModal = ({ isOpen, rules, onUpdateRules, onClose, themeHook }) => 
                             <div className="flex justify-between items-center bg-black/30 p-3 rounded-lg border border-white/5 mt-2">
                                 <span className="text-sm font-bold uppercase tracking-wide text-gray-300">Accessibility</span>
                                 <div className="flex items-center gap-2 bg-black/40 rounded-lg p-1 border border-white/10">
-                                     <button
-                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!rules.accessibility ? 'hidden' : 'text-gray-500 hover:text-white'}`}
+                                     <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className={!rules.accessibility ? 'hidden' : 'text-gray-500 hover:text-white'}
                                         onClick={() => onUpdateRules({ accessibility: false })}
                                      >
                                          OFF
-                                     </button>
-                                     <button
-                                        className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${rules.accessibility ? 'bg-white text-black shadow-lg' : 'text-gray-500 hover:text-white'}`}
+                                     </Button>
+                                     <Button
+                                        variant={rules.accessibility ? "secondary" : "ghost"}
+                                        size="sm"
+                                        className={rules.accessibility ? "bg-white text-black shadow-lg" : "text-gray-500 hover:text-white"}
                                         onClick={() => onUpdateRules({ accessibility: !rules.accessibility })}
                                      >
                                          {rules.accessibility ? 'ON' : 'OFF'}
-                                     </button>
+                                     </Button>
                                 </div>
                             </div>
                         </>
                     )}
                 </div>
 
-                <div className="p-6 pt-0">
-                    <button 
-                        onClick={onClose} 
-                        className="w-full py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold uppercase tracking-widest border border-white/10 transition-all hover:-translate-y-0.5 active:scale-95 shadow-lg"
-                    >
-                        {t('close')}
-                    </button>
+                <div className="p-6 pt-0 mt-4">
+                    <DialogClose asChild>
+                        <Button 
+                            variant="outline"
+                            className="w-full py-6 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold uppercase tracking-widest border-white/10 hover:border-white/30"
+                        >
+                            {t('close')}
+                        </Button>
+                    </DialogClose>
                 </div>
-            </div>
-        </div>,
-        document.body
+            </DialogContent>
+        </Dialog>
     );
 };
 

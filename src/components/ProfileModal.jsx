@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "./ui/dialog";
+import { Button } from "./ui/button";
 
 const ProfileModal = ({ isOpen, onClose, profile, stats, achievements, allAchievements, updateProfile }) => {
     const [activeTab, setActiveTab] = useState('profile');
     const [editMode, setEditMode] = useState(false);
     const [newName, setNewName] = useState(profile.username);
-
-    if (!isOpen) return null;
 
     const AVATARS = ['😎', '🕵️', '🤖', '🦊', '🦁', '🐉', '🎩', '👽'];
 
@@ -15,14 +20,13 @@ const ProfileModal = ({ isOpen, onClose, profile, stats, achievements, allAchiev
         setEditMode(false);
     };
 
-    return createPortal(
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-sans text-sans">
-            <div className="bg-slate-900 border border-white/20 w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-pop">
+    return (
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-2xl bg-slate-900 border-white/20 text-white p-0 overflow-hidden gap-0">
                 
                 {/* Header */}
                 <div className="flex justify-between items-center p-6 border-b border-white/10 bg-black/40">
-                    <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-wider">Player Profile</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors text-2xl">✕</button>
+                    <DialogTitle className="text-xl md:text-2xl font-black text-white uppercase tracking-wider">Player Profile</DialogTitle>
                 </div>
 
                 {/* Tabs */}
@@ -30,7 +34,7 @@ const ProfileModal = ({ isOpen, onClose, profile, stats, achievements, allAchiev
                     {['profile', 'stats', 'achievements'].map(tab => (
                         <button 
                             key={tab}
-                            className={`flex-1 py-4 font-bold uppercase tracking-wider text-xs md:text-sm transition-all ${activeTab === tab ? 'bg-white/5 text-bj-gold border-b-2 border-bj-gold' : 'text-gray-500 hover:text-white/80'}`}
+                            className={`flex-1 py-4 font-bold uppercase tracking-wider text-xs md:text-sm transition-all outline-none focus:outline-none ${activeTab === tab ? 'bg-white/5 text-bj-gold border-b-2 border-bj-gold' : 'text-gray-500 hover:text-white/80'}`}
                             onClick={() => setActiveTab(tab)}
                         >
                             {tab}
@@ -39,7 +43,7 @@ const ProfileModal = ({ isOpen, onClose, profile, stats, achievements, allAchiev
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-white">
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-white max-h-[70vh]">
                     
                     {activeTab === 'profile' && (
                         <div className="flex flex-col items-center gap-8">
@@ -53,7 +57,7 @@ const ProfileModal = ({ isOpen, onClose, profile, stats, achievements, allAchiev
                                 </div>
                                 
                                 {/* Avatar Selector */}
-                                <div className="hidden group-hover:flex absolute top-0 left-full ml-4 bg-black/90 p-2 rounded-xl border border-white/20 gap-2 flex-wrap w-[140px] z-10 animate-fade-in z-50">
+                                <div className="hidden group-hover:flex absolute top-0 left-full ml-4 bg-black/90 p-2 rounded-xl border border-white/20 gap-2 flex-wrap w-[140px] z-50 animate-in fade-in zoom-in slide-in-from-left-2 duration-200">
                                     {AVATARS.map(av => (
                                         <button key={av} onClick={() => updateProfile({ avatar: av })} className="text-2xl hover:scale-125 transition-transform p-1">
                                             {av}
@@ -65,13 +69,15 @@ const ProfileModal = ({ isOpen, onClose, profile, stats, achievements, allAchiev
                             {/* Info */}
                             <div className="w-full text-center">
                                 {editMode ? (
-                                    <div className="flex gap-2 justify-center mb-2">
+                                    <div className="flex gap-2 justify-center mb-2 items-center">
                                         <input 
                                             value={newName} 
                                             onChange={(e) => setNewName(e.target.value)} 
                                             className="bg-white/10 border border-white/30 rounded px-3 py-1 text-white text-center font-bold"
                                         />
-                                        <button onClick={saveName} className="text-green-400">✅</button>
+                                        <Button size="icon" variant="ghost" onClick={saveName} className="text-green-400 hover:text-green-300 hover:bg-green-900/20 h-8 w-8">
+                                            ✅
+                                        </Button>
                                     </div>
                                 ) : (
                                     <h3 
@@ -134,9 +140,8 @@ const ProfileModal = ({ isOpen, onClose, profile, stats, achievements, allAchiev
                     )}
                 </div>
 
-            </div>
-        </div>,
-        document.body
+            </DialogContent>
+        </Dialog>
     );
 };
 

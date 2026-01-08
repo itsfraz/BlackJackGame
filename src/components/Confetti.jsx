@@ -1,59 +1,54 @@
 import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Confetti = ({ active }) => {
     const [particles, setParticles] = useState([]);
 
     useEffect(() => {
         if (active) {
-            const count = 100;
-            const newParticles = [];
-            
-            for (let i = 0; i < count; i++) {
-                newParticles.push({
+            // Generate distinct particles for the explosion
+            const newParticles = Array.from({ length: 150 }).map((_, i) => {
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * 800 + 200; // Random distance
+                return {
                     id: i,
-                    x: 50, // Start center
-                    y: 50,
-                    angle: Math.random() * 360,
-                    speed: Math.random() * 10 + 5,
-                    color: ['#FFD700', '#FF0000', '#00FF00', '#0000FF', '#FFFFFF'][Math.floor(Math.random() * 5)],
-                    delay: Math.random() * 0.5
-                });
-            }
+                    x: Math.cos(angle) * velocity,
+                    y: Math.sin(angle) * velocity,
+                    color: ['#FFD700', '#FF4444', '#44FF44', '#4444FF', '#FFFFFF'][Math.floor(Math.random() * 5)],
+                    delay: Math.random() * 0.2
+                };
+            });
             setParticles(newParticles);
         } else {
             setParticles([]);
         }
     }, [active]);
 
-    if (!active) return null;
-
     return (
-        <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
-            {particles.map(p => (
-                <div
-                    key={p.id}
-                    className="absolute w-2 h-2 rounded-full"
-                    style={{
-                        left: `${p.x}%`,
-                        top: `${p.y}%`,
-                        backgroundColor: p.color,
-                        transform: 'translate(-50%, -50%)',
-                        animation: `explode 1.5s ease-out forwards ${p.delay}s`
-                    }}
-                />
-            ))}
-            <style>{`
-                @keyframes explode {
-                    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-                    100% { 
-                        transform: translate(
-                            calc(-50% + ${Math.random() * 200 - 100}vw), 
-                            calc(-50% + ${Math.random() * 200 - 100}vh)
-                        ) scale(0); 
-                        opacity: 0; 
-                    }
-                }
-            `}</style>
+        <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden flex items-center justify-center">
+            <AnimatePresence>
+                {active && particles.map(p => (
+                    <motion.div
+                        key={p.id}
+                        initial={{ opacity: 1, x: 0, y: 0, scale: 0.5 }}
+                        animate={{ 
+                            opacity: 0, 
+                            x: p.x,
+                            y: p.y,
+                            scale: 0,
+                            rotate: Math.random() * 720
+                        }}
+                        exit={{ opacity: 0 }}
+                        transition={{ 
+                            duration: 1.5, 
+                            ease: "easeOut", 
+                            delay: p.delay 
+                        }}
+                        className="absolute w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]"
+                        style={{ backgroundColor: p.color, color: p.color }} // shadowing uses currentcolor
+                    />
+                ))}
+            </AnimatePresence>
         </div>
     );
 };

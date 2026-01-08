@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from "framer-motion";
 import Card from './Card';
 
 const Hand = ({ title, cards, score, hideSecondCard = false, isActive = true, result = null, bet = 0, cardBack = 'classic' }) => {
@@ -19,31 +20,71 @@ const Hand = ({ title, cards, score, hideSecondCard = false, isActive = true, re
       </div>
       
       <div className="flex justify-center items-center relative h-[140px] min-w-[120px]">
-        {cards.map((card, index) => (
-          <div key={`${card.rank}-${card.suit}-${index}`} style={{ transform: `translateX(${index * 30}px) translateY(${index * -2}px)`, zIndex: index, position: 'absolute', top: 0 }}>
-             <Card 
-                suit={card.suit} 
-                rank={card.rank} 
-                index={index}
-                hidden={hideSecondCard && index === 1}
-                cardBack={cardBack}
-             />
-          </div>
-        ))}
+        <AnimatePresence>
+            {cards.map((card, index) => (
+              <motion.div 
+                key={`${card.rank}-${card.suit}-${index}`} // Unique key for animation
+                initial={{ 
+                    opacity: 0, 
+                    y: -300, 
+                    x: -200, 
+                    rotateY: 180, 
+                    scale: 0.5 
+                }}
+                animate={{ 
+                    opacity: 1, 
+                    y: index * -2, 
+                    x: index * 30, 
+                    rotateY: 0, 
+                    scale: 1,
+                    zIndex: index 
+                }}
+                exit={{ 
+                    opacity: 0, 
+                    y: -100, 
+                    scale: 0.8,
+                    transition: { duration: 0.2 }
+                }}
+                transition={{ 
+                    type: "spring", 
+                    stiffness: 200, 
+                    damping: 20,
+                    delay: index * 0.1 // Stagger effect
+                }}
+                style={{ position: 'absolute', top: 0 }}
+              >
+                 <Card 
+                    suit={card.suit} 
+                    rank={card.rank} 
+                    index={index}
+                    hidden={hideSecondCard && index === 1}
+                    cardBack={cardBack}
+                 />
+              </motion.div>
+            ))}
+        </AnimatePresence>
 
         {/* This creates the width for the relative container based on number of cards roughly, or we use absolute stacking which is fine for blackjack */}
         <div style={{ width: `${cards.length * 30 + 100}px` }} className="h-1 w-1 opacity-0 pointer-events-none"></div>
 
         {/* Result Overlay */}
-        {result && (
-            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-4 py-1 rounded border-2 font-black text-xl md:text-2xl uppercase tracking-widest shadow-xl backdrop-blur-sm animate-pop z-50
-                ${(result === 'win' || result === 'blackjack' || result === 'Gagné' || result === 'Ganaste') ? 'bg-green-900/90 border-green-400 text-green-400' : 
-                  (result === 'loss' || result === 'Perdu' || result === 'Perdiste') ? 'bg-red-900/90 border-red-500 text-red-500' : 
-                  'bg-yellow-900/90 border-yellow-400 text-yellow-400'}
-            `}>
-                {result}
-            </div>
-        )}
+        <AnimatePresence>
+            {result && (
+                <motion.div 
+                    initial={{ scale: 0, rotate: -10, opacity: 0 }}
+                    animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 15 }}
+                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-4 py-1 rounded border-2 font-black text-xl md:text-2xl uppercase tracking-widest shadow-xl backdrop-blur-sm z-50
+                        ${(result === 'win' || result === 'blackjack' || result === 'Gagné' || result === 'Ganaste') ? 'bg-green-900/90 border-green-400 text-green-400' : 
+                          (result === 'loss' || result === 'Perdu' || result === 'Perdiste') ? 'bg-red-900/90 border-red-500 text-red-500' : 
+                          'bg-yellow-900/90 border-yellow-400 text-yellow-400'}
+                    `}
+                >
+                    {result}
+                </motion.div>
+            )}
+        </AnimatePresence>
       </div>
     </div>
   );
