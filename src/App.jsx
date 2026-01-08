@@ -15,12 +15,14 @@ import { usePlayerProfile } from './hooks/usePlayerProfile';
 import { calculateScore, isSoftHand } from './utils/deck';
 import { useTheme } from './hooks/useTheme';
 import { useHaptics } from './hooks/useHaptics';
+import { useAudio, SOUNDS } from './hooks/useAudio';
 
 function App() {
   const [showProfile, setShowProfile] = useState(false);
   const profileHook = usePlayerProfile();
   const themeHook = useTheme();
   const { triggerHaptic } = useHaptics();
+  const { playSound, muted, toggleMute } = useAudio();
   
   // Pass the result processor to the engine
   const { gameState, actions } = useGameEngine(profileHook.processGameResult);
@@ -34,16 +36,29 @@ function App() {
   // Use translation helper
   const { t } = themeHook;
 
-  // Haptic Feedback for critical game states
+  // Audio & Haptic Feedback for critical game states
   useEffect(() => {
     if (phase === 'resolving') {
         const anyWin = playerHands.some(h => ['win', 'blackjack', 'Gagné', 'Ganaste'].includes(h.result));
         const anyLoss = playerHands.some(h => ['loss', 'bust', 'Perdu', 'Perdiste'].includes(h.result));
         
-        if (anyWin) triggerHaptic('success');
-        else if (anyLoss) triggerHaptic('error');
+        if (anyWin) {
+            triggerHaptic('success');
+            playSound(SOUNDS.WIN);
+        } else if (anyLoss) {
+            triggerHaptic('error');
+            playSound(SOUNDS.BUST);
+        }
     }
-  }, [phase, playerHands, triggerHaptic]);
+  }, [phase, playerHands, triggerHaptic, playSound]);
+
+  // Play shuffle sound on new game/deal if deck is reshuffled (simplified to deal for now)
+  useEffect(() => {
+    if (phase === 'dealing') {
+        playSound(SOUNDS.SHUFFLE);
+        setTimeout(() => playSound(SOUNDS.DEAL), 500);
+    }
+  }, [phase, playSound]);
 
   // Helper to format score
   const getHandScore = (cards) => {
@@ -129,6 +144,14 @@ function App() {
         
         <div className="pointer-events-auto flex items-center gap-4">
            
+           <button 
+             onClick={toggleMute}
+             className="w-10 h-10 flex justify-center items-center rounded-full bg-white/10 backdrop-blur-sm border border-white/10 hover:bg-white/20 transition-all text-xl"
+             title={muted ? "Unmute" : "Mute"}
+           >
+             {muted ? '🔇' : '🔊'}
+           </button>
+
            {/* Profile Button */}
            <button 
              onClick={() => setShowProfile(true)}
@@ -240,7 +263,10 @@ function App() {
                         }}
                         chipStack={chipStack}
                         timer={phase === 'betting' ? timer : 0}
-                        onAction={(type) => triggerHaptic(type)}
+                        onAction={(type) => {
+                            triggerHaptic(type);
+                            if (type === 'light') playSound(SOUNDS.CHIP_PLACE);
+                        }}
                      />
                  ) : (
                      <Controls 
@@ -248,7 +274,10 @@ function App() {
                         phase={phase}
                         features={features} 
                         actions={actions}
-                        onAction={(type) => triggerHaptic(type)}
+                        onAction={(type) => {
+                            triggerHaptic(type);
+                            playSound(SOUNDS.CLICK);
+                        }}
                      />
                  )}
              </div>
@@ -288,8 +317,8 @@ function App() {
       />
 
       <IntelligencePanel 
-          data={gameState.intelligence}
-          onToggleMode={actions.toggleLearningMode}
+           data={gameState.intelligence}
+           onToggleMode={actions.toggleLearningMode}
       />
       
       <StrategyFeedback feedback={gameState.intelligence.mistake} />
