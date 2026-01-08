@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import Hand from './components/Hand';
 import Controls from './components/Controls';
 import BettingControls from './components/BettingControls';
@@ -13,11 +14,13 @@ import { useGameEngine } from './hooks/useGameEngine';
 import { usePlayerProfile } from './hooks/usePlayerProfile';
 import { calculateScore, isSoftHand } from './utils/deck';
 import { useTheme } from './hooks/useTheme';
+import { useHaptics } from './hooks/useHaptics';
 
 function App() {
   const [showProfile, setShowProfile] = useState(false);
   const profileHook = usePlayerProfile();
   const themeHook = useTheme();
+  const { triggerHaptic } = useHaptics();
   
   // Pass the result processor to the engine
   const { gameState, actions } = useGameEngine(profileHook.processGameResult);
@@ -30,6 +33,17 @@ function App() {
 
   // Use translation helper
   const { t } = themeHook;
+
+  // Haptic Feedback for critical game states
+  useEffect(() => {
+    if (phase === 'resolving') {
+        const anyWin = playerHands.some(h => ['win', 'blackjack', 'Gagné', 'Ganaste'].includes(h.result));
+        const anyLoss = playerHands.some(h => ['loss', 'bust', 'Perdu', 'Perdiste'].includes(h.result));
+        
+        if (anyWin) triggerHaptic('success');
+        else if (anyLoss) triggerHaptic('error');
+    }
+  }, [phase, playerHands, triggerHaptic]);
 
   // Helper to format score
   const getHandScore = (cards) => {
@@ -77,6 +91,23 @@ function App() {
         document.body.classList.remove('high-contrast');
     }
   }, [settings.rules.accessibility]);
+
+  // Camera Variants
+  const cameraVariants = {
+    betting: { scale: 1, y: 0, opacity: 1 },
+    dealing: { scale: 1.02, y: 0 },
+    playerTurn: { 
+        scale: 1.05, 
+        y: window.innerWidth > 768 ? '5%' : '-5%', // Shift attention to player area
+        transition: { duration: 0.8, ease: "easeInOut" }
+    },
+    dealerTurn: { 
+        scale: 1.05, 
+        y: window.innerWidth > 768 ? '-5%' : '5%', // Shift attention to dealer area
+        transition: { duration: 0.8, ease: "easeInOut" }
+    },
+    resolving: { scale: 1, y: 0 }
+  };
 
   return (
     <div className={`flex flex-col min-h-screen w-full bg-felt overflow-hidden relative text-white font-sans select-none transition-all duration-700`}>
@@ -136,8 +167,13 @@ function App() {
         </div>
       </header>
       
-      {/* Main Game Table Container with Camera Zoom */}
-      <main className={`flex-1 flex flex-col w-full h-full relative transition-transform duration-1000 ease-in-out ${phase === 'dealing' ? 'scale-[1.02]' : phase === 'playerTurn' ? 'scale-[1.05] md:translate-y-[2%]' : 'scale-100'}`}>
+      {/* Main Game Table Container with Dynamic Camera */}
+      <motion.main 
+        className="flex-1 flex flex-col w-full h-full relative"
+        animate={phase}
+        variants={cameraVariants}
+        initial="betting"
+      >
         <div className="flex-1 flex flex-col md:flex-row items-center justify-center w-full px-2 md:px-4 relative perspective-1000 gap-4 md:gap-0 pb-24 md:pb-0">
             
             {/* Dealer Section (Top on mobile, Left on desktop) */}
@@ -198,11 +234,13 @@ function App() {
                         onClear={actions.clearBets}
                         onReBet={actions.reBet}
                         onDeal={() => {
+                            triggerHaptic('heavy');
                             if (phase === 'resolving') actions.resetGame();
                             actions.dealGame();
                         }}
                         chipStack={chipStack}
                         timer={phase === 'betting' ? timer : 0}
+                        onAction={(type) => triggerHaptic(type)}
                      />
                  ) : (
                      <Controls 
@@ -210,11 +248,12 @@ function App() {
                         phase={phase}
                         features={features} 
                         actions={actions}
+                        onAction={(type) => triggerHaptic(type)}
                      />
                  )}
              </div>
         </div>
-      </main>
+      </motion.main>
       
       {/* Modals & Panels */}
       <ProfileModal 

@@ -13,7 +13,8 @@ const BettingControls = ({
     onReBet, 
     onDeal,
     chipStack,
-    timer 
+    timer,
+    onAction 
 }) => {
 
   const getChipColor = (val) => {
@@ -24,6 +25,11 @@ const BettingControls = ({
           case 500: return 'bg-gradient-to-b from-yellow-400 to-yellow-600 ring-2 ring-yellow-200/50 text-black shadow-[0_4px_10px_rgba(250,204,21,0.5)]';
           default: return 'bg-gray-500';
       }
+  };
+
+  const handleBet = (val, type) => {
+      if (onAction) onAction('light');
+      onBet(val, type);
   };
 
   return (
@@ -83,7 +89,7 @@ const BettingControls = ({
                     <button 
                       key={val} 
                       className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex justify-center items-center font-black text-sm md:text-base transition-all hover:scale-110 hover:-translate-y-1 active:scale-95 disabled:opacity-20 disabled:grayscale ${getChipColor(val)} ${val === 500 ? 'text-black' : 'text-white'}`}
-                      onClick={() => onBet(val, 'main')}
+                      onClick={() => handleBet(val, 'main')}
                       disabled={bankroll < val}
                     >
                       {val}
@@ -95,14 +101,14 @@ const BettingControls = ({
               <div className="flex gap-2">
                   <button 
                     className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/60 border border-white/10 rounded-lg hover:bg-white/10 hover:text-white hover:border-white/30 transition-all disabled:opacity-30" 
-                    onClick={() => onBet(10, 'pairs')} 
+                    onClick={() => handleBet(10, 'pairs')} 
                     disabled={bankroll < 10}
                   >
                       Pair <span className="text-bj-gold">${sideBets.pairs}</span>
                   </button>
                   <button 
                     className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/60 border border-white/10 rounded-lg hover:bg-white/10 hover:text-white hover:border-white/30 transition-all disabled:opacity-30" 
-                    onClick={() => onBet(10, 'poker')} 
+                    onClick={() => handleBet(10, 'poker')} 
                     disabled={bankroll < 10}
                   >
                       Poker <span className="text-bj-gold">${sideBets.poker}</span>
@@ -115,7 +121,7 @@ const BettingControls = ({
               <Button 
                 variant="ghost"
                 className="px-6 py-3 rounded-xl text-gray-400 font-bold text-sm uppercase tracking-wider hover:text-white hover:bg-white/5 disabled:opacity-30 h-auto" 
-                onClick={onClear} 
+                onClick={() => { if (onAction) onAction('medium'); onClear(); }} 
                 disabled={currentBet === 0 && sideBets.pairs === 0}
               >
                   Clear
@@ -123,7 +129,8 @@ const BettingControls = ({
               <Button
                 variant="outline" 
                 className="px-6 py-3 rounded-xl text-white font-bold text-sm uppercase tracking-wider border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40 h-auto disabled:opacity-30" 
-                onClick={onReBet}
+                onClick={() => { if (onAction) onAction('medium'); onReBet(); }} 
+                onReBet
               >
                   Re-Bet
               </Button>
