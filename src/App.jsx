@@ -233,6 +233,7 @@ function App() {
                         isActive={phase === 'playerTurn' && idx === currentHandIndex}
                         result={hand.result} 
                         bet={hand.bet}
+                        chips={hand.chips}
                         cardBack={themeHook.preferences.cardBack}
                     />
                  ))
@@ -252,6 +253,7 @@ function App() {
                      <BettingControls 
                         bankroll={bankroll}
                         currentBet={currentBet}
+                        activeSpots={gameState.activeSpots}
                         sideBets={sideBets}
                         onBet={actions.placeBet}
                         onClear={actions.clearBets}
@@ -261,7 +263,6 @@ function App() {
                             if (phase === 'resolving') actions.resetGame();
                             actions.dealGame();
                         }}
-                        chipStack={chipStack}
                         timer={phase === 'betting' ? timer : 0}
                         onAction={(type) => {
                             triggerHaptic(type);

@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import Card from './Card';
 
-const Hand = ({ title, cards, score, hideSecondCard = false, isActive = true, result = null, bet = 0, cardBack = 'classic' }) => {
+const Hand = ({ title, cards, score, hideSecondCard = false, isActive = true, result = null, bet = 0, chips = [], cardBack = 'classic' }) => {
   return (
     <div className={`relative flex flex-col items-center p-4 rounded-xl transition-all duration-500 transform ${isActive ? 'scale-105 opacity-100 z-20' : 'scale-95 opacity-60 z-10'}`}>
       
@@ -86,6 +86,26 @@ const Hand = ({ title, cards, score, hideSecondCard = false, isActive = true, re
             )}
         </AnimatePresence>
       </div>
+      
+      {/* Chips Stack */}
+      {chips && chips.length > 0 && (
+          <div className="absolute -bottom-6 flex flex-col-reverse items-center justify-center pointer-events-none z-30">
+             {chips.map((val, i) => (
+                 <div 
+                    key={`chip-${i}`} 
+                    className={`w-10 h-10 rounded-full border border-white/30 shadow-[0_2px_5px_rgba(0,0,0,0.5)] -mt-8 ${
+                        val === 10 ? 'bg-red-600 ring-1 ring-red-400' :
+                        val === 25 ? 'bg-green-600 ring-1 ring-green-400' :
+                        val === 100 ? 'bg-blue-600 ring-1 ring-blue-400' :
+                        'bg-yellow-500 ring-1 ring-yellow-300 text-black'
+                    } flex items-center justify-center text-[10px] font-bold`}
+                 >
+                    {val}
+                 </div>
+             ))}
+          </div>
+      )}
+
     </div>
   );
 };

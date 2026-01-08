@@ -29,10 +29,15 @@ export const useGameEngine = (onRoundEnd) => {
     return saved ? parseInt(saved) : 1000;
   });
   
-  const [currentBet, setCurrentBet] = useState(0);
-  const [chipStack, setChipStack] = useState([]); // Array of chip values [10, 10, 25] for visual stacking
+  // Multi-Hand Betting State
+  // 3 distinct spots: 0 (Left), 1 (Center), 2 (Right)
+  const [activeSpots, setActiveSpots] = useState([
+      { bet: 0, chips: [] },
+      { bet: 0, chips: [] },
+      { bet: 0, chips: [] }
+  ]);
   
-  const [sideBets, setSideBets] = useState({ pairs: 0, poker: 0 }); 
+  const [sideBets, setSideBets] = useState({ pairs: 0, poker: 0 }); // Kept global/center for simplicity now
   const [lastBet, setLastBet] = useState(null);
 
   // Jackpot & Streaks
@@ -49,8 +54,8 @@ export const useGameEngine = (onRoundEnd) => {
   const [learningMode, setLearningMode] = useState(false); // Toggle
   const [runningCount, setRunningCount] = useState(0);
   const [trueCount, setTrueCount] = useState(0);
-  const [suggestion, setSuggestion] = useState(null); // { action: 'hit', reason: 'Basic Strategy' }
-  const [latestMistake, setLatestMistake] = useState(null); // User feedback
+  const [suggestion, setSuggestion] = useState(null); 
+  const [latestMistake, setLatestMistake] = useState(null); 
 
   // Game Proper
   const [phase, setPhase] = useState('betting'); 
@@ -70,6 +75,9 @@ export const useGameEngine = (onRoundEnd) => {
   const [rules, setRules] = useState(DEFAULT_RULES);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Derived Total Bet
+  const totalBet = activeSpots.reduce((sum, spot) => sum + spot.bet, 0);
 
   // --- Effects ---
   
@@ -95,12 +103,7 @@ export const useGameEngine = (onRoundEnd) => {
           setTimer(30);
           interval = setInterval(() => {
               setTimer(prev => {
-                  if (prev <= 1) {
-                      // Auto deal if bet placed, else reset?
-                      // Usually auto-deal implies forcing the deal. 
-                      // If bet == 0, just restart timer?
-                      return 30; 
-                  }
+                  if (prev <= 1) return 30; 
                   return prev - 1;
               });
           }, 1000);
@@ -122,21 +125,6 @@ export const useGameEngine = (onRoundEnd) => {
     setTrueCount(0);
   };
 
-  // Helper: Update Count
-  const updateCount = (newCards) => {
-      let rc = runningCount;
-      newCards.forEach(c => {
-          rc += getHiLoCount(c);
-      });
-      setRunningCount(rc);
-      
-      // True Count
-      const decksExhausted = (rules.numberOfDecks * 52 - shoe.length) / 52;
-      const decksRem = rules.numberOfDecks - decksExhausted;
-      const tc = decksRem > 0 ? Math.round(rc / decksRem) : rc;
-      setTrueCount(tc);
-  };
-
   const claimDailyBonus = () => {
       setBankroll(prev => prev + DAILY_BONUS_AMOUNT);
       localStorage.setItem('bj_last_daily', Date.now());
@@ -150,22 +138,39 @@ export const useGameEngine = (onRoundEnd) => {
   };
 
   // --- Actions: Betting Phase ---
-  const placeBet = (amount, type = 'main') => { // For backward compatibility if needed, but we used addChip main
-      addChip(amount, type);
+  // Updated for Spot Support
+  const placeBet = (amount, type = 'main', spotIndex = 1) => { 
+      // Ensure spotIndex is valid
+      const idx = spotIndex !== undefined ? spotIndex : 1;
+      addChip(amount, type, idx);
   };
 
-  const addChip = (amount, type = 'main') => {
+  const addChip = (amount, type = 'main', spotIndex = 1) => {
       if (bankroll < amount) return;
+
       if (type === 'main') {
-         if (currentBet + amount > rules.maxBet) {
-             setMessage("Max Table Limit Reached");
+         // Validate Spot Limit (optional) and Table Limit
+         const currentSpotBet = activeSpots[spotIndex].bet;
+         if (currentSpotBet + amount > rules.maxBet) {
+             setMessage("Spot Max Limit Reached");
              return;
          }
-         setCurrentBet(prev => prev + amount);
-         setChipStack(prev => [...prev, amount]); // Add to stack for ID/visuals
+
          setBankroll(prev => prev - amount);
-         setTimer(30); // Reset timer on interaction
+         setTimer(30);
+
+         setActiveSpots(prev => {
+             const newSpots = [...prev];
+             newSpots[spotIndex] = {
+                 ...newSpots[spotIndex],
+                 bet: newSpots[spotIndex].bet + amount,
+                 chips: [...newSpots[spotIndex].chips, amount]
+             };
+             return newSpots;
+         });
+
       } else {
+         // Legacy Side Bet support (tied to center or global for now)
          setSideBets(prev => ({ ...prev, [type]: prev[type] + amount }));
          setBankroll(prev => prev - amount);
       }
@@ -174,39 +179,62 @@ export const useGameEngine = (onRoundEnd) => {
   };
 
   const clearBets = () => {
-    setBankroll(prev => prev + currentBet + sideBets.pairs + sideBets.poker);
-    setCurrentBet(0);
-    setChipStack([]); // Clear chips
+    const totalReturned = totalBet + sideBets.pairs + sideBets.poker;
+    setBankroll(prev => prev + totalReturned);
+    
+    setActiveSpots([
+        { bet: 0, chips: [] },
+        { bet: 0, chips: [] },
+        { bet: 0, chips: [] }
+    ]);
     setSideBets({ pairs: 0, poker: 0 });
   };
 
   const reBet = () => {
     if (!lastBet) return;
-    const totalNeeded = lastBet.main + lastBet.pairs + lastBet.poker;
+    
+    // Check total needed
+    // lastBet structure needs update or simple adaptation
+    // If lastBet saved 'spots', use that. Else legacy fallback.
+    let totalNeeded = 0;
+    
+    if (lastBet.spots) {
+        totalNeeded = lastBet.spots.reduce((acc, s) => acc + s.bet, 0) + lastBet.pairs + lastBet.poker;
+    } else {
+        totalNeeded = lastBet.main + lastBet.pairs + lastBet.poker;
+    }
+
     if (bankroll < totalNeeded) {
         setMessage("Insufficient funds to Re-Bet");
         return;
     }
-    // Logic to reconstruct chip stack approximately (greedy)
-    const newStack = [];
-    let rem = lastBet.main;
-    const denoms = [500, 100, 25, 10];
-    for (let d of denoms) {
-        while (rem >= d) {
-            newStack.push(d);
-            rem -= d;
-        }
-    }
 
     setBankroll(prev => prev - totalNeeded);
-    setCurrentBet(lastBet.main);
-    setChipStack(newStack.reverse()); // Stack usually builds up
     setSideBets({ pairs: lastBet.pairs, poker: lastBet.poker });
+
+    if (lastBet.spots) {
+        // Full restore of multi-hand bets
+        setActiveSpots(lastBet.spots); // Assuming deep clone or safe reference in setLastBet
+    } else {
+        // Fallback for single hand legacy
+         // Reconstruct chips greedily
+         const newStack = [];
+         let rem = lastBet.main;
+         const denoms = [500, 100, 25, 10];
+         for (let d of denoms) {
+             while (rem >= d) { newStack.push(d); rem -= d; }
+         }
+         setActiveSpots(prev => {
+             const n = [...prev];
+             n[1] = { bet: lastBet.main, chips: newStack.reverse() }; // Center spot
+             return n;
+         });
+    }
   }
 
   // --- Actions: Gameplay ---
   const dealGame = async () => {
-    if (currentBet < rules.minBet) {
+    if (totalBet < rules.minBet) {
       setMessage(`Minimum bet is $${rules.minBet}`);
       return;
     }
@@ -221,73 +249,90 @@ export const useGameEngine = (onRoundEnd) => {
     }
 
     setPhase('dealing');
-    setLastBet({ main: currentBet, pairs: sideBets.pairs, poker: sideBets.poker });
+    // Save state correctly for ReBet
+    setLastBet({ 
+        spots: JSON.parse(JSON.stringify(activeSpots)), 
+        pairs: sideBets.pairs, 
+        poker: sideBets.poker 
+    });
+    
     setInsuranceBet(0);
     setShowInsuranceModal(false);
 
     const newShoe = [...shoe];
-    const pHandCards = [newShoe.pop(), newShoe.pop()];
-    const dHandCards = [newShoe.pop(), newShoe.pop()]; // dHand[1] hidden, do not count yet?
     
-    // In Hi-Lo, you only count visible cards.
-    // Update count with Player Cards + Dealer Upcard (dHand[0])
-    // dHand[1] is hidden.
+    // --- Deal Logic for Multi-Hand ---
+    // Identify active spots
+    const dealingSpots = activeSpots.map((s, i) => ({ ...s, index: i })).filter(s => s.bet > 0);
+    
+    // Initial cards for Player Hands
+    // Deal sequence: Spot 0 -> Spot 1 -> Spot 2 -> Dealer -> Spot 0 -> Spot 1 -> Spot 2 -> Dealer
+    // But simplified: Just deal 2 cards to each active spot.
+    
+    const newPlayerHands = [];
+    
+    // Dealing 2 cards to each active spot
+    for (let spot of dealingSpots) {
+        const c1 = newShoe.pop();
+        const c2 = newShoe.pop();
+        
+        newPlayerHands.push({
+            id: Date.now() + spot.index, 
+            cards: [c1, c2], // In real deal, it's interlaced, but logically fine here
+            bet: spot.bet,
+            chips: [...spot.chips],
+            status: 'playing',
+            result: null,
+            spotIndex: spot.index // Track visual position?
+        });
+    }
+
+    const dHandCards = [newShoe.pop(), newShoe.pop()];
+    
+    // Count Update
     let rc = runningCount;
-    [...pHandCards, dHandCards[0]].forEach(c => rc += getHiLoCount(c));
-    // We can't update state immediately inside dealGame correctly due to closure on runningCount if not careful
-    // But since we use setRunningCount(prev => ...), we can do it.
-    // Actually, simpler to recalculate. (See updateCount helper logic, need to integrate carefully).
+    // Add all player cards + dealer upcard
+    newPlayerHands.forEach(h => {
+        h.cards.forEach(c => rc += getHiLoCount(c));
+    });
+    rc += getHiLoCount(dHandCards[0]);
+    
     setRunningCount(rc);
     const decksRem = Math.max(1, (newShoe.length) / 52);
     setTrueCount(Math.round(rc / decksRem));
 
     setShoe(newShoe);
     setDealerHand(dHandCards);
-    
-    const initialHand = {
-      id: Date.now(),
-      cards: pHandCards,
-      bet: currentBet,
-      status: 'playing',
-      result: null,
-      chips: [...chipStack] // Store visual stack with hand
-    };
-    setPlayerHands([initialHand]);
+    setPlayerHands(newPlayerHands);
     setCurrentHandIndex(0);
 
-    // Initial Payouts & History Log
-    let roundLog = {
-        ts: Date.now(),
-        bet: currentBet,
-        result: 'pending',
-        payout: 0,
-        hand: [] 
-    };
-
-    // Side Bet Resolution
+    // Side Bet Resolution (Checks only 1st hand or all? Simplified: Check ALL active hands for pair?)
+    // But sideBets.pairs is a single value... usually implies Center spot sidebet if global.
+    // For now, let's say Side Bets only apply to the FIRST active hand (or Center).
+    // Let's apply to Center spot if active, else ignore? 
+    // Or split side bet evenly?
+    // Implementation: Apply 'Global' side bets to the first dealt hand only.
+    
     let winnings = 0;
     let payoutMsg = "";
 
-    if (sideBets.pairs > 0) {
-        const mult = checkPerfectPairs(pHandCards);
-        if (mult > 0) {
-            winnings += sideBets.pairs * mult + sideBets.pairs;
-            payoutMsg += `Pairs Win! `;
+    const mainHand = newPlayerHands[0]; // Apply side bets to first hand for now
+    if (mainHand) {
+        if (sideBets.pairs > 0) {
+            const mult = checkPerfectPairs(mainHand.cards);
+            if (mult > 0) {
+                winnings += sideBets.pairs * mult + sideBets.pairs;
+                payoutMsg += `Pairs Win! `;
+            }
+        }
+        if (sideBets.poker > 0) {
+            const mult = check21Plus3(mainHand.cards, dHandCards[0]);
+            if (mult > 0) {
+                winnings += sideBets.poker * mult + sideBets.poker;
+                payoutMsg += `Poker Win! `;
+            }
         }
     }
-
-    if (sideBets.poker > 0) {
-        const mult = check21Plus3(pHandCards, dHandCards[0]);
-        if (mult > 0) {
-            winnings += sideBets.poker * mult + sideBets.poker;
-            payoutMsg += `Poker Win! `;
-        }
-    }
-    
-    // Jackpot Check (Triple 7s Suited)
-    // Actually standard JP is usually 7-7-7 Suited in one hand?
-    // Hard to get in 2 cards. usually first 3 cards (Hit once) or Side Bet specific game.
-    // We'll stick to basic side bets for now.
 
     if (winnings > 0) {
         setBankroll(prev => prev + winnings);
@@ -295,112 +340,64 @@ export const useGameEngine = (onRoundEnd) => {
         await new Promise(r => setTimeout(r, 1500));
     }
     
-    const pScore = calculateScore(pHandCards);
+    // Check Naturals
+    // Need to check specific hands for blackjack
+    newPlayerHands.forEach(h => {
+        if (calculateScore(h.cards) === 21) {
+            h.status = 'blackjack';
+        }
+    });
+
+    // Update with blackjack statuses
+    setPlayerHands([...newPlayerHands]);
+
     const dealerHasAce = dHandCards[0].rank === 'A';
     
-    if (pScore === 21) {
-        initialHand.status = 'blackjack';
-        setPlayerHands([initialHand]);
-    }
-
-    if (dealerHasAce && pScore !== 21) {
+    // If ANY player hand is not BJ, and dealer has Ace, offer insurance? 
+    // Standard: Offer insurance if dealer shows Ace.
+    if (dealerHasAce) {
         setShowInsuranceModal(true);
     } else {
-        checkDealerNatural(newShoe, dHandCards, [initialHand]);
-    }
-  };
-
-  const resolveInsurance = (buy) => {
-    setShowInsuranceModal(false);
-    let currentBankroll = bankroll;
-    
-    // Logic for insurance... (Kept same as before)
-    if (buy) {
-      const cost = Math.floor(currentBet / 2);
-      if (currentBankroll >= cost) {
-         setInsuranceBet(cost);
-         currentBankroll -= cost;
-         setBankroll(currentBankroll);
-      }
-    }
-    
-    const dHand = dealerHand;
-    const isDealerBJ = isBlackjack(dHand);
-    
-    if (isDealerBJ) {
-       if (buy) {
-         setBankroll(currentBankroll + (Math.floor(currentBet / 2) * 3)); 
-         setMessage("Insurance Pays!");
-       } else {
-         setMessage("Dealer has Blackjack.");
-       }
-       finishRound(playerHands, dHand, 'dealerBJ'); 
-    } else {
-       if (buy) setMessage("Insurance Lost");
-       const currentPHand = playerHands[0];
-       if (currentPHand.status === 'blackjack') {
-          finishRound(playerHands, dHand);
-       } else {
-          setPhase('playerTurn');
-       }
+        checkDealerNatural(newShoe, dHandCards, newPlayerHands);
     }
   };
 
   const checkDealerNatural = (deckStr, dHand, pHands) => {
     const isDealerBJ = isBlackjack(dHand);
-    const pHand = pHands[0]; 
-
+    
     if (isDealerBJ) {
-        if (pHand.status === 'blackjack') {
-            finishRound(pHands, dHand, 'dealerBJ');
-        } else {
-            finishRound(pHands, dHand, 'dealerBJ'); 
-        }
+        finishRound(pHands, dHand, 'dealerBJ');
     } else {
-        if (pHand.status === 'blackjack') {
-            finishRound(pHands, dHand); 
+        // Check if all players have BJs?
+        const allBJ = pHands.every(h => h.status === 'blackjack');
+        if (allBJ) {
+            finishRound(pHands, dHand);
         } else {
-            setPhase('playerTurn');
+            // Find first non-BJ hand to start turn
+            let startIdx = 0;
+            while(startIdx < pHands.length && pHands[startIdx].status === 'blackjack') {
+                startIdx++;
+            }
+            if (startIdx >= pHands.length) {
+                setPhase('dealerTurn'); // Should trigger finish logic
+            } else {
+                setCurrentHandIndex(startIdx);
+                setPhase('playerTurn');
+            }
         }
     }
   };
-
-
-  const checkStrategy = (action) => {
-      if (!learningMode) return;
-      
-      const currentHand = playerHands[currentHandIndex];
-      const pScore = calculateScore(currentHand.cards);
-      const isSoft = isSoftHand(currentHand.cards);
-      const canSplit = currentHand.cards.length === 2 && currentHand.cards[0].value === currentHand.cards[1].value;
-      // We don't check double ability inside strict strategy helper yet, assuming "Double" is always strategy if allowed.
-      
-      const ideal = getBasicStrategyMove({ 
-          cards: currentHand.cards, 
-          score: pScore, 
-          isSoft, 
-          canSplit, 
-          canDouble: true // simplified
-      }, dealerHand[0]);
-
-      // Map ideal to generic action for comparison
-      // ideal: hit, stand, double, split
-      // action: hit, stand, double, split, surrender
-      let isMistake = false;
-      let msg = "";
-
-      if (ideal !== action) {
-          // Allow Double as Hit if Bankroll low? No strict enforcement.
-          if (ideal === 'double' && action === 'hit') { /* Acceptable sometimes */ }
-          else {
-              isMistake = true;
-              msg = `Mistake! Basic Strategy says: ${ideal.toUpperCase()}`;
-          }
+  
+  // Wrapped Action Helpers to verify current hand validity
+  const withCurrentHand = (fn) => {
+      const h = playerHands[currentHandIndex];
+      // Safety check
+      if(!h || h.status !== 'playing') {
+          // Try to advance?
+          // advanceHand(playerHands);
+          return;
       }
-      
-      if (isMistake) {
-          setLatestMistake({ msg, ts: Date.now() });
-      }
+      fn(h);
   };
 
   const hit = async () => {
@@ -408,11 +405,7 @@ export const useGameEngine = (onRoundEnd) => {
     const newShoe = [...shoe];
     const card = newShoe.pop();
     setShoe(newShoe);
-    
-    // Count Update
     setRunningCount(prev => prev + getHiLoCount(card));
-    // True count update implied loosely for UI, exact calc done on phase changes or separate effect?
-    // Let's rely on basic increment for speed here.
 
     const updatedHands = [...playerHands];
     const hand = updatedHands[currentHandIndex];
@@ -424,7 +417,6 @@ export const useGameEngine = (onRoundEnd) => {
        hand.status = 'bust';
        advanceHand(updatedHands);
     } else if (score === 21) {
-        // Auto Stand on 21 (Requested Feature)
         hand.status = 'stand';
         advanceHand(updatedHands);
     } else {
@@ -451,7 +443,7 @@ export const useGameEngine = (onRoundEnd) => {
 
     setBankroll(prev => prev - hand.bet);
     hand.bet *= 2;
-    hand.chips = [...hand.chips, ...hand.chips]; // Visual double keys? Just duplicate stack
+    hand.chips = [...hand.chips, ...hand.chips]; 
     hand.isDoubled = true;
 
     const newShoe = [...shoe];
@@ -480,12 +472,13 @@ export const useGameEngine = (onRoundEnd) => {
     const splitCard = hand.cards.pop();
     
     const newHand = {
-        id: Date.now() + 1,
+        id: Date.now() + Math.random(),
         cards: [splitCard],
         bet: hand.bet,
         status: 'playing',
-        chips: [...hand.chips], // Clone stack
-        result: null
+        chips: [...hand.chips], 
+        result: null,
+        spotIndex: hand.spotIndex // Inherit spot visual
     };
     
     updatedHands.splice(currentHandIndex + 1, 0, newHand); 
@@ -493,12 +486,10 @@ export const useGameEngine = (onRoundEnd) => {
     const newShoe = [...shoe];
     const c1 = newShoe.pop();
     hand.cards.push(c1);
-    setRunningCount(prev => prev + getHiLoCount(c1)); // Count
-    setShoe(newShoe); // intermediate update
+    setRunningCount(prev => prev + getHiLoCount(c1));
+    setShoe(newShoe); 
     
     setPlayerHands(updatedHands);
-    // Note: split usually gets another card for split hand when that hand becomes active.
-    // Our logic handles card dealing on "advanceHand" if card count is 1.
   };
   
   const surrender = () => {
@@ -513,16 +504,77 @@ export const useGameEngine = (onRoundEnd) => {
     advanceHand(updatedHands);
   };
 
+  const resolveInsurance = (buy) => {
+    setShowInsuranceModal(false);
+    let currentBankroll = bankroll;
+    
+    if (buy) {
+      const cost = Math.floor(currentBet / 2); // Wait, currentBet is total. Insurance usually on "Main Hand"?
+      // Simplify: Insurance based on TOTAL BET exposed?
+      // Standard: Insurance is per hand.
+      // Simplification: Insurance only on first hand / center hand or aggregate.
+      // Let's take TOTAL bet exposed on table / 2.
+      // currentBet is sum(activeSpots).
+      
+      const insuranceCost = Math.floor(totalBet / 2);
+      if (currentBankroll >= insuranceCost) {
+         setInsuranceBet(insuranceCost);
+         currentBankroll -= insuranceCost;
+         setBankroll(currentBankroll);
+      }
+    }
+    
+    const dHand = dealerHand;
+    const isDealerBJ = isBlackjack(dHand);
+    
+    if (isDealerBJ) {
+       if (buy) {
+         setBankroll(currentBankroll + (Math.floor(totalBet / 2) * 3)); 
+         setMessage("Insurance Pays!");
+       } else {
+         setMessage("Dealer has Blackjack.");
+       }
+       finishRound(playerHands, dHand, 'dealerBJ'); 
+    } else {
+       if (buy) setMessage("Insurance Lost");
+       
+       // Resume
+       checkDealerNatural(shoe, dHand, playerHands);
+    }
+  };
+
   const advanceHand = (hands) => {
     let nextIdx = currentHandIndex + 1;
     if (nextIdx < hands.length) {
+        setPlayerHands(hands); // Commit current state
         const nextHand = hands[nextIdx];
-        if (nextHand.cards.length === 1) {
-            const newShoe = [...shoe];
-            nextHand.cards.push(newShoe.pop());
-            setShoe(newShoe);
+        
+        // Auto-skip settled hands (blackjacks)
+        if (nextHand.status !== 'playing' && nextHand.cards.length >= 2) {
+            setCurrentHandIndex(nextIdx); // Set next
+            // Recursively advance if that one is also done?
+            // Safer to just let next render cycle handle or simple recursion:
+            // return advanceHand(hands) -- but careful with state updates.
+            // For now, assume player must click "Stand" or we auto-skip here?
+            // Actually, we should check status. If next hand is BJ, move past it.
+            // Let's do a quick loop
+            while (nextIdx < hands.length && hands[nextIdx].status !== 'playing') {
+                nextIdx++;
+            }
+            if (nextIdx >= hands.length) {
+                setPhase('dealerTurn');
+                return;
+            }
         }
-        setPlayerHands(hands);
+        
+        // Deal 2nd card to Split hands if needed
+        if (hands[nextIdx].cards.length === 1) {
+             // It's a split hand needing a card
+             const newShoe = [...shoe];
+             hands[nextIdx].cards.push(newShoe.pop());
+             setShoe(newShoe);
+        }
+        
         setCurrentHandIndex(nextIdx);
     } else {
         setPlayerHands(hands);
@@ -541,17 +593,11 @@ export const useGameEngine = (onRoundEnd) => {
             let score = calculateScore(currentDHand);
             let soft = isSoftHand(currentDHand);
 
-            while (
-                score < 17 || 
-                (score === 17 && soft && rules.dealerSoft17)
-            ) {
-                // Dealer Hole Card Reveal Count!
-                // Actually hole card is D[1]. It was logically in "dHand" state but "hidden" in UI.
-                // In Hi-Lo, you count it when revealed.
-                // We should add its count when 'dealerTurn' starts?
-                // For simplicity, we assume user counts it when revealed.
-                // We'll update the runningCount state here for hole card once.
-                
+            if (dealerHand.length === 2) {
+                 setRunningCount(prev => prev + getHiLoCount(dealerHand[1]));
+            }
+
+            while (score < 17 || (score === 17 && soft && rules.dealerSoft17)) {
                 await delay(800);
                 const card = currentShoe.pop();
                 currentDHand = [...currentDHand, card];
@@ -564,10 +610,6 @@ export const useGameEngine = (onRoundEnd) => {
             setShoe(currentShoe);
             finishRound(playerHands, currentDHand);
         };
-        // Count the hole card when dealer turn starts
-        if (dealerHand.length === 2) {
-             setRunningCount(prev => prev + getHiLoCount(dealerHand[1]));
-        }
         executeDealer();
     }
   }, [phase]);
@@ -583,7 +625,6 @@ export const useGameEngine = (onRoundEnd) => {
         let result = 'push';
         let msg = '';
         let payout = 0;
-        
         const pScore = calculateScore(hand.cards);
         
         if (hand.status === 'bust') {
@@ -612,11 +653,9 @@ export const useGameEngine = (onRoundEnd) => {
         return { ...hand, result, message: msg, payout };
     });
 
-    // Risk Free First Bet Logic
     if (isRiskFree && roundWinnings === 0 && finalHands.every(h => h.result === 'loss')) {
-        // Refund
         const totalLost = finalHands.reduce((acc, h) => acc + h.bet, 0);
-        roundWinnings += totalLost; // Give it back
+        roundWinnings += totalLost; 
         setMessage("Risk-Free Bet Refunded!");
         setIsRiskFree(false);
     } else if (roundWinnings > 0) {
@@ -631,15 +670,11 @@ export const useGameEngine = (onRoundEnd) => {
     if (anyWin) {
         const newStreak = winStreak + 1;
         setWinStreak(newStreak);
-        if (newStreak % 3 === 0) {
-            setBankroll(prev => prev + 50); // Streak Bonus
-            setMessage(`Streak Bonus! +$50`);
-        }
+        if (newStreak % 3 === 0) setBankroll(prev => prev + 50); 
     } else if (finalHands.some(h => h.result === 'loss')) {
         setWinStreak(0);
     }
 
-    // History
     setBetHistory(prev => [{
         id: Date.now(),
         result: anyWin ? 'Win' : 'Loss',
@@ -647,21 +682,34 @@ export const useGameEngine = (onRoundEnd) => {
         date: new Date().toLocaleTimeString()
     }, ...prev].slice(0, 10));
     
-    // External Callback for Profile Stats
-    if (onRoundEnd) {
-        onRoundEnd(finalHands, roundWinnings);
-    }
+    if (onRoundEnd) onRoundEnd(finalHands, roundWinnings);
     
     setPhase('resolving');
   };
   
+  // Strategy Check Helper for methods
+  const checkStrategy = (action) => {
+      if (!learningMode) return;
+      const currentHand = playerHands[currentHandIndex];
+      const pScore = calculateScore(currentHand.cards);
+      const isSoft = isSoftHand(currentHand.cards);
+      const canSplit = currentHand.cards.length === 2 && currentHand.cards[0].value === currentHand.cards[1].value;
+      const ideal = getBasicStrategyMove({ cards: currentHand.cards, score: pScore, isSoft, canSplit, canDouble: true }, dealerHand[0]);
+      if (ideal !== action && !(ideal === 'double' && action === 'hit')) {
+          setLatestMistake({ msg: `Mistake! Basic Strategy says: ${ideal.toUpperCase()}`, ts: Date.now() });
+      }
+  };
+
   const resetGame = () => {
     setPhase('betting');
     setPlayerHands([]);
     setDealerHand([]);
     setMessage('');
-    setChipStack([]); // Reset visual stack on table? Usually yes, chips collected.
-    setCurrentBet(0);
+    // Clear spots logic: Don't clear bets, just keep them for next round? 
+    // Usually casino apps keep bets. But for now let's clear visuals of hands.
+    // The activeSpots remain as is? No, usually "Repeat Bet" or "Use last bet".
+    // Let's clear spots to 0 for a fresh round flow, forcing ReBet.
+    setActiveSpots([ { bet: 0, chips: [] }, { bet: 0, chips: [] }, { bet: 0, chips: [] } ]);
     setSideBets({ pairs: 0, poker: 0 });
     setTimer(30);
   };
@@ -669,8 +717,8 @@ export const useGameEngine = (onRoundEnd) => {
   return {
     gameState: {
         bankroll,
-        currentBet,
-        chipStack, // Exposed for rendering
+        activeSpots,
+        currentBet: totalBet, // Backwards compat in UI display
         sideBets,
         phase,
         playerHands,
@@ -685,15 +733,9 @@ export const useGameEngine = (onRoundEnd) => {
         jackpot,
         winStreak,
         timer,
-        intelligence: {
-            learningMode,
-            runningCount,
-            trueCount,
-            mistake: latestMistake
-        }
+        intelligence: { learningMode, runningCount, trueCount, mistake: latestMistake }
     },
     actions: {
-        addChip, // Exposed
         placeBet,
         clearBets,
         reBet,
