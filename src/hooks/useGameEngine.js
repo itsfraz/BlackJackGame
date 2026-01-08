@@ -41,8 +41,7 @@ export const useGameEngine = (onRoundEnd) => {
   const [dailyBonusAvailable, setDailyBonusAvailable] = useState(false);
   const [isRiskFree, setIsRiskFree] = useState(true); // First bet logic
 
-  // Timer
-  const [timer, setTimer] = useState(30);
+
 
   // Player  // Intelligence & Training
   const [learningMode, setLearningMode] = useState(false);
@@ -120,20 +119,7 @@ export const useGameEngine = (onRoundEnd) => {
       }
   }, []);
 
-  // Timer Logic
-  useEffect(() => {
-      let interval;
-      if (phase === 'betting' && gameMode === 'standard') {
-          setTimer(30);
-          interval = setInterval(() => {
-              setTimer(prev => {
-                  if (prev <= 1) return 30; 
-                  return prev - 1;
-              });
-          }, 1000);
-      }
-      return () => clearInterval(interval);
-  }, [phase, gameMode]);
+
 
   // Init Shoe
   useEffect(() => {
@@ -185,7 +171,7 @@ export const useGameEngine = (onRoundEnd) => {
          }
 
          setBankroll(prev => prev - amount);
-         setTimer(30);
+
 
          setActiveSpots(prev => {
              const newSpots = [...prev];
@@ -835,7 +821,7 @@ export const useGameEngine = (onRoundEnd) => {
     if (gameMode === 'standard') {
         setActiveSpots(Array(playerCount).fill(null).map(() => ({ bet: 0, chips: [] }))); 
         setSideBets({ pairs: 0, poker: 0 });
-        setTimer(30);
+
     }
   };
 
@@ -859,7 +845,7 @@ export const useGameEngine = (onRoundEnd) => {
         lastBet,
         jackpot,
         winStreak,
-        timer,
+
         intelligence: { learningMode, runningCount, trueCount, mistake: latestMistake }
     },
     actions: {

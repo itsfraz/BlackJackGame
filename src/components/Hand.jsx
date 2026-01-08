@@ -110,5 +110,5 @@ const Hand = ({ title, cards, score, hideSecondCard = false, isActive = true, re
   );
 };
 
-export default Hand;
+export default React.memo(Hand);
 

@@ -96,20 +96,4 @@ export const getBasicStrategyMove = (playerHand, dealerUpCard) => {
     return 'hit'; // 8 or less
 };
 
-export const calculateBustProbability = (hand, shoe) => {
-   // Simplified: Count cards in shoe that would bust the hand
-   // Since we don't have the exact shoe composition readily available efficiently in frontend in this structure usually,
-   // we can estimate based on "Infinite Deck" or Running Count if we have it?
-   // Let's use simple "Infinite Deck" approx (1 deck) for UI speed
-   // Hand score, distance to 22.
-   
-   // Actually, we can use the `shoe` array from game engine if passed.
-   // But simpler:
-   const data = {
-       cards: [2,3,4,5,6,7,8,9,10,10,10,10,11], // Distribution
-   };
-   
-   let score = 0; // Hand Score passed in
-   // This needs proper implementation in hook
-   return 0;
-};
+

@@ -13,9 +13,17 @@ const BettingControls = ({
     onClear, 
     onReBet, 
     onDeal,
-    timer,
     onAction 
 }) => {
+  const [timer, setTimer] = useState(30);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+        setTimer(prev => prev <= 1 ? 30 : prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   
   const [selectedChip, setSelectedChip] = useState(25);
 
@@ -179,4 +187,4 @@ const BettingControls = ({
   );
 };
 
-export default BettingControls;
+export default React.memo(BettingControls);

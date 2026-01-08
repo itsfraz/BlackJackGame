@@ -1,21 +1,19 @@
 import React from 'react';
 
-const Card = ({ suit, rank, hidden = false, index = 0, cardBack = 'classic' }) => {
+const CARD_BACKS = {
+  classic: 'radial-gradient(circle, transparent 20%, #000 20%, #000 80%, transparent 80%, transparent)', 
+  modern: 'linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000)',
+  lines: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.5) 10px, rgba(0,0,0,0.5) 20px)',
+  solid: 'none' 
+};
+
+const Card = React.memo(({ suit, rank, hidden = false, index = 0, cardBack = 'classic' }) => {
   const isRed = suit === '♥' || suit === '♦';
 
-  const getBackStyle = () => {
-      const CARD_BACKS = {
-        classic: 'radial-gradient(circle, transparent 20%, #000 20%, #000 80%, transparent 80%, transparent)', 
-        modern: 'linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000)',
-        lines: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.5) 10px, rgba(0,0,0,0.5) 20px)',
-        solid: 'none' 
-      };
-      
-      return {
-          backgroundImage: CARD_BACKS[cardBack] || CARD_BACKS.classic,
-          backgroundSize: cardBack === 'classic' || cardBack === 'modern' ? '10px 10px' : 'auto',
-          backgroundColor: '#b71c1c'
-      };
+  const backStyle = {
+      backgroundImage: CARD_BACKS[cardBack] || CARD_BACKS.classic,
+      backgroundSize: cardBack === 'classic' || cardBack === 'modern' ? '10px 10px' : 'auto',
+      backgroundColor: '#b71c1c'
   };
 
   return (
@@ -47,13 +45,13 @@ const Card = ({ suit, rank, hidden = false, index = 0, cardBack = 'classic' }) =
         {/* Back Face */}
         <div 
             className="absolute w-full h-full backface-hidden rotate-y-180 rounded-xl border-2 border-white overflow-hidden shadow-inner"
-            style={getBackStyle()}
+            style={backStyle}
         >
              <div className="w-full h-full opacity-50 bg-gradient-to-b from-transparent to-black/30"></div>
         </div>
       </div>
     </div>
   );
-};
+});
 
 export default Card;
