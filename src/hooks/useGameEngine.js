@@ -142,7 +142,11 @@ export const useGameEngine = (onRoundEnd) => {
       localStorage.setItem('bj_last_daily', Date.now());
       setDailyBonusAvailable(false);
       setShowDailyModal(false);
-      setMessage(`Daily Bonus Claimed! +$${DAILY_BONUS_AMOUNT}`);
+      const msg = `Daily Bonus Claimed! +$${DAILY_BONUS_AMOUNT}`;
+      setMessage(msg);
+      setTimeout(() => {
+        setMessage(current => current === msg ? '' : current);
+      }, 1000);
   };
 
   // --- Actions: Betting Phase ---
