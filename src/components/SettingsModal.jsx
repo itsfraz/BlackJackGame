@@ -9,7 +9,7 @@ import {
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 
-const SettingsModal = ({ isOpen, rules, onUpdateRules, onClose, themeHook }) => {
+const SettingsModal = ({ isOpen, rules, onUpdateRules, onClose, themeHook, playerCount, setPlayerCount }) => {
     const { preferences, updatePreferences, themes, cardBacks, languages, t } = themeHook;
     const [activeTab, setActiveTab] = React.useState('game');
 
@@ -20,8 +20,6 @@ const SettingsModal = ({ isOpen, rules, onUpdateRules, onClose, themeHook }) => 
                 {/* Header */}
                 <div className="p-6 border-b border-white/10 bg-black/40 flex justify-between items-center">
                     <DialogTitle className="text-2xl font-black uppercase tracking-wider text-white">{t('settings')}</DialogTitle>
-                    {/* Close button is handled by DialogContent's generic close, but we can add custom if we want to match old UI exactly. 
-                        Radix adds a close button by default in my implementation of DialogContent. */}
                 </div>
 
                 {/* Tabs */}
@@ -45,6 +43,23 @@ const SettingsModal = ({ isOpen, rules, onUpdateRules, onClose, themeHook }) => 
                     {/* Game Rules Tab */}
                     {activeTab === 'game' && (
                         <>
+                             {/* Active Seats */}
+                             <div className="flex flex-col gap-2">
+                                <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Active Seats</label>
+                                <div className="flex gap-2">
+                                    {[1, 2, 3].map(n => (
+                                        <Button 
+                                            key={n}
+                                            variant={playerCount === n ? "default" : "outline"}
+                                            className={`flex-1 ${playerCount === n ? 'bg-bj-gold text-black hover:bg-yellow-400' : 'bg-black/40 text-gray-500 border-white/10 hover:text-white'}`}
+                                            onClick={() => setPlayerCount(n)}
+                                        >
+                                            {n}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+
                             {/* Decks Selector */}
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">{t('decks')}</label>

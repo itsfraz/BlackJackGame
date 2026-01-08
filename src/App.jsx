@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import Hand from './components/Hand';
 import Controls from './components/Controls';
 import BettingControls from './components/BettingControls';
+import TrainingModal from './components/TrainingModal';
 import SettingsModal from './components/SettingsModal';
 import InsuranceModal from './components/InsuranceModal';
 import DailyBonusModal from './components/DailyBonusModal';
@@ -174,6 +175,13 @@ function App() {
            </div>
            
            <button 
+             onClick={() => actions.setTrainingOpen(true)} 
+             className="w-10 h-10 flex justify-center items-center rounded-full bg-white/10 backdrop-blur-sm border border-white/10 hover:bg-white/20 hover:-translate-y-0.5 transition-all shadow-lg text-2xl"
+             title={t('training')}
+           >
+             🎓
+           </button>
+           <button 
              onClick={actions.toggleHistory} 
              className="w-10 h-10 flex justify-center items-center rounded-full bg-white/10 backdrop-blur-sm border border-white/10 hover:bg-white/20 hover:-translate-y-0.5 transition-all shadow-lg text-2xl"
              title={t('history')}
@@ -292,12 +300,21 @@ function App() {
         {...profileHook}
       />
 
+      <TrainingModal 
+         isOpen={gameState.training.open}
+         onClose={() => actions.setTrainingOpen(false)}
+         actions={actions}
+         trainingState={gameState.training}
+      />
+
       <SettingsModal 
          isOpen={settings.open}
          rules={settings.rules}
          onUpdateRules={actions.updateRules}
          onClose={actions.toggleSettings}
          themeHook={themeHook}
+         playerCount={gameState.playerCount}
+         setPlayerCount={actions.setPlayerCount}
       />
       
       <InsuranceModal 

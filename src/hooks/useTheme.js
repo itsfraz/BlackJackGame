@@ -39,7 +39,8 @@ const TRANSLATIONS = {
         win: 'Win',
         loss: 'Loss',
         push: 'Push',
-        blackjack: 'Blackjack'
+        blackjack: 'Blackjack',
+        training: 'Training Center'
     },
     es: {
         title: 'Blackjack Pro',
@@ -64,7 +65,8 @@ const TRANSLATIONS = {
         win: 'Ganaste',
         loss: 'Perdiste',
         push: 'Empate',
-        blackjack: 'Blackjack'
+        blackjack: 'Blackjack',
+        training: 'Centro de Entrenamiento'
     },
     fr: {
         title: 'Blackjack Pro',
@@ -89,7 +91,8 @@ const TRANSLATIONS = {
         win: 'Gagné',
         loss: 'Perdu',
         push: 'Égalité',
-        blackjack: 'Blackjack'
+        blackjack: 'Blackjack',
+        training: 'Entraînement'
     }
 };
 
