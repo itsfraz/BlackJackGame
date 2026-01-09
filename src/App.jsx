@@ -30,7 +30,7 @@ function App() {
   const { 
     bankroll, currentBet, sideBets, phase, playerHands, dealerHand, 
     currentHandIndex, message, insurance, settings, dailyBonus, history, jackpot, 
-    winStreak
+    winStreak, players
   } = gameState;
 
   // Use translation helper
@@ -119,6 +119,7 @@ function App() {
                {phase === 'betting' || phase === 'resolving' ? (
                    <BettingControls 
                       bankroll={bankroll}
+                      players={players}
                       currentBet={currentBet}
                       activeSpots={gameState.activeSpots}
                       sideBets={sideBets}
@@ -188,6 +189,7 @@ function App() {
       <HistoryPanel 
          isOpen={history.open}
          history={history.list}
+         players={players}
          onClose={actions.toggleHistory}
       />
 

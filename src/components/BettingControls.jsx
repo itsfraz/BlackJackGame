@@ -13,8 +13,13 @@ const BettingControls = ({
     onClear, 
     onReBet, 
     onDeal,
-    onAction 
+
+    onAction,
+    players = [] 
 }) => {
+  const maxSpendingPower = players.length > 0 
+      ? Math.max(...players.map(p => p.spendingPower || 0)) 
+      : bankroll;
   const [timer, setTimer] = useState(30);
 
   React.useEffect(() => {
@@ -123,7 +128,7 @@ const BettingControls = ({
                         ${getChipColor(val)} ${val === 500 ? 'text-black' : 'text-white'}
                       `}
                       onClick={() => selectChip(val)}
-                      disabled={bankroll < val}
+                      disabled={maxSpendingPower < val}
                     >
                       {val}
                     </button>

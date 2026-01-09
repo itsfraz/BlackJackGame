@@ -9,6 +9,7 @@ import {
   isSoftHand 
 } from '../utils/deck';
 import { getBasicStrategyMove, getHiLoCount } from '../utils/strategy';
+import { Player } from '../utils/Player';
 
 const DEFAULT_RULES = {
   numberOfDecks: 6,
@@ -24,9 +25,20 @@ const JACKPOT_SEED = 10000;
 
 export const useGameEngine = (onRoundEnd) => {
   // Money & Economy
-  const [bankroll, setBankroll] = useState(() => {
-    const saved = localStorage.getItem('bj_bankroll');
-    return saved ? parseInt(saved) : 1000;
+  // Money & Economy
+  const [players, setPlayers] = useState(() => {
+    const saved = localStorage.getItem('bj_players');
+    if (saved) {
+        const data = JSON.parse(saved);
+        return data.map(p => new Player(p.id, p.name, p.spendingPower));
+    }
+    const savedLegacy = localStorage.getItem('bj_bankroll');
+    const startMoney = savedLegacy ? parseInt(savedLegacy) : 1000;
+    return [
+        new Player(1, 'Player 1', startMoney),
+        new Player(2, 'Player 2', 1000), 
+        new Player(3, 'Player 3', 1000)
+    ];
   });
   
 
@@ -99,10 +111,10 @@ export const useGameEngine = (onRoundEnd) => {
 
   // --- Effects ---
   
-  // Persist Bankroll
+  // Persist Players
   useEffect(() => {
-     localStorage.setItem('bj_bankroll', bankroll);
-  }, [bankroll]);
+     localStorage.setItem('bj_players', JSON.stringify(players));
+  }, [players]);
   
   // Persist Strategy History
   useEffect(() => {
@@ -136,7 +148,18 @@ export const useGameEngine = (onRoundEnd) => {
   };
 
   const claimDailyBonus = () => {
-      setBankroll(prev => prev + DAILY_BONUS_AMOUNT);
+      // Add to Player 1
+      setPlayers(prev => {
+          const newPlayers = prev.map(p => {
+              if (p.id === 1) {
+                  const np = new Player(p.id, p.name, p.spendingPower);
+                  np.addFunds(DAILY_BONUS_AMOUNT);
+                  return np;
+              }
+              return p;
+          });
+          return newPlayers;
+      });
       localStorage.setItem('bj_last_daily', Date.now());
       setDailyBonusAvailable(false);
       setShowDailyModal(false);
@@ -156,7 +179,11 @@ export const useGameEngine = (onRoundEnd) => {
   };
 
   const addChip = (amount, type = 'main', spotIndex) => {
-      if (bankroll < amount) return;
+      // Use spotIndex to find player. Assuming 1:1 mapping for now.
+      const playerIdx = spotIndex !== undefined ? spotIndex : 0;
+      const player = players[playerIdx];
+
+      if (!player || !player.hasEnoughFunds(amount)) return;
       
       const defaultIdx = activeSpots.length === 1 ? 0 : 1;
       const idx = spotIndex !== undefined ? spotIndex : defaultIdx;
@@ -170,7 +197,16 @@ export const useGameEngine = (onRoundEnd) => {
              return;
          }
 
-         setBankroll(prev => prev - amount);
+         // Deduct from Player
+         setPlayers(prev => {
+             const newPlayers = [...prev];
+             // Clone to trigger update/avoid mutation issues
+             const p = newPlayers[playerIdx];
+             const np = new Player(p.id, p.name, p.spendingPower);
+             np.deductFunds(amount);
+             newPlayers[playerIdx] = np;
+             return newPlayers;
+         });
 
 
          setActiveSpots(prev => {
@@ -186,9 +222,26 @@ export const useGameEngine = (onRoundEnd) => {
          });
 
       } else {
-         // Legacy Side Bet support (tied to center or global for now)
+         // Side Bet support - deducted from Player 1 (Index 0) by default as they are global-ish
+         // OR if side bets are per-spot in UI, we use playerIdx. 
+         // Current UI usually puts side bets in center. Let's assume Player 1 pays.
+         if (playerIdx !== 0 && (type === 'pairs' || type === 'poker')) {
+             // For now force Player 1 (Main)
+         }
+         
+         const sideBetPlayerIdx = 0; 
+         if (!players[sideBetPlayerIdx].hasEnoughFunds(amount)) return;
+
+         setPlayers(prev => {
+            const newPlayers = [...prev];
+            const p = newPlayers[sideBetPlayerIdx];
+            const np = new Player(p.id, p.name, p.spendingPower);
+            np.deductFunds(amount);
+            newPlayers[sideBetPlayerIdx] = np;
+            return newPlayers;
+        });
+
          setSideBets(prev => ({ ...prev, [type]: prev[type] + amount }));
-         setBankroll(prev => prev - amount);
       }
       // Progressive Tick
       setJackpot(prev => prev + (amount * 0.01)); 
@@ -196,8 +249,26 @@ export const useGameEngine = (onRoundEnd) => {
 
   const clearBets = () => {
     if (gameMode === 'drill') return;
-    const totalReturned = totalBet + sideBets.pairs + sideBets.poker;
-    setBankroll(prev => prev + totalReturned);
+    
+    // Refund Main Bets
+    setPlayers(prev => {
+        const newPlayers = [...prev];
+        activeSpots.forEach((spot, i) => {
+            if (spot.bet > 0 && newPlayers[i]) {
+                const np = new Player(newPlayers[i].id, newPlayers[i].name, newPlayers[i].spendingPower);
+                np.addFunds(spot.bet);
+                newPlayers[i] = np;
+            }
+        });
+        // Refund Side Bets (Player 1)
+        const sideTotal = sideBets.pairs + sideBets.poker;
+        if (sideTotal > 0 && newPlayers[0]) {
+             const np = new Player(newPlayers[0].id, newPlayers[0].name, newPlayers[0].spendingPower);
+             np.addFunds(sideTotal);
+             newPlayers[0] = np;
+        }
+        return newPlayers;
+    });
     
     // Dynamic reset
     setActiveSpots(prev => Array(prev.length).fill(null).map(() => ({ bet: 0, chips: [] })));
@@ -223,12 +294,57 @@ export const useGameEngine = (onRoundEnd) => {
         totalNeeded = lastBet.main + lastBet.pairs + lastBet.poker;
     }
 
-    if (bankroll < totalNeeded) {
-        setMessage("Insufficient funds to Re-Bet");
-        return;
-    }
+    if (lastBet.spots) {
+        // Validation: Check if each player can afford their previous bet
+        for (let i = 0; i < lastBet.spots.length; i++) {
+            const bet = lastBet.spots[i].bet;
+            if (bet > 0) {
+                 if (!players[i] || !players[i].hasEnoughFunds(bet)) {
+                     setMessage(`Player ${i+1} insufficient funds`);
+                     return;
+                 }
+            }
+        }
+        // Side bets (Player 1)
+        const sideTotal = lastBet.pairs + lastBet.poker;
+        if (sideTotal > 0 && (!players[0] || !players[0].hasEnoughFunds(sideTotal))) {
+             setMessage("Player 1 insufficient funds for side bets");
+             return;
+        }
 
-    setBankroll(prev => prev - totalNeeded);
+        // Deduct
+        setPlayers(prev => {
+            const newPlayers = [...prev];
+            lastBet.spots.forEach((spot, i) => {
+                 if (spot.bet > 0 && newPlayers[i]) {
+                    const np = new Player(newPlayers[i].id, newPlayers[i].name, newPlayers[i].spendingPower);
+                    np.deductFunds(spot.bet);
+                    newPlayers[i] = np;
+                 }
+            });
+            if (sideTotal > 0 && newPlayers[0]) {
+                 const np = new Player(newPlayers[0].id, newPlayers[0].name, newPlayers[0].spendingPower);
+                 np.deductFunds(sideTotal);
+                 newPlayers[0] = np;
+            }
+            return newPlayers;
+        });
+
+    } else {
+        // ... (Legacy single bet path - assumes Player 1/Main)
+         totalNeeded = lastBet.main + lastBet.pairs + lastBet.poker;
+         if (!players[0].hasEnoughFunds(totalNeeded)) {
+             setMessage("Insufficient funds");
+             return;
+         }
+         setPlayers(prev => {
+             const np = new Player(prev[0].id, prev[0].name, prev[0].spendingPower);
+             np.deductFunds(totalNeeded);
+             const newArr = [...prev];
+             newArr[0] = np;
+             return newArr;
+         });
+    }
     setSideBets({ pairs: lastBet.pairs, poker: lastBet.poker });
 
     if (lastBet.spots) {
@@ -411,7 +527,13 @@ export const useGameEngine = (onRoundEnd) => {
             }
         }
         if (winnings > 0) {
-            setBankroll(prev => prev + winnings);
+            setPlayers(prev => {
+                const np = new Player(prev[0].id, prev[0].name, prev[0].spendingPower);
+                np.addFunds(winnings);
+                const newArr = [...prev];
+                newArr[0] = np;
+                return newArr;
+            });
             setMessage(payoutMsg);
             await new Promise(r => setTimeout(r, 1500));
         }
@@ -505,13 +627,20 @@ export const useGameEngine = (onRoundEnd) => {
     const updatedHands = [...playerHands];
     const hand = updatedHands[currentHandIndex];
     
-    if (gameMode === 'standard' && bankroll < hand.bet) {
+    const pIdx = hand.spotIndex; // Map hand spot to player
+    if (gameMode === 'standard' && (!players[pIdx] || !players[pIdx].hasEnoughFunds(hand.bet))) {
       setMessage("Insufficient funds");
       return;
     }
 
     if (gameMode === 'standard') {
-        setBankroll(prev => prev - hand.bet);
+        setPlayers(prev => {
+            const newPlayers = [...prev];
+            const np = new Player(newPlayers[pIdx].id, newPlayers[pIdx].name, newPlayers[pIdx].spendingPower);
+            np.deductFunds(hand.bet);
+            newPlayers[pIdx] = np;
+            return newPlayers;
+        });
     }
     
     hand.bet *= 2;
@@ -545,9 +674,18 @@ export const useGameEngine = (onRoundEnd) => {
     const updatedHands = [...playerHands];
     const hand = updatedHands[currentHandIndex];
     
-    if (gameMode === 'standard' && bankroll < hand.bet) return;
+    const pIdx = hand.spotIndex;
+    if (gameMode === 'standard' && (!players[pIdx] || !players[pIdx].hasEnoughFunds(hand.bet))) return;
     
-    if (gameMode === 'standard') setBankroll(prev => prev - hand.bet);
+    if (gameMode === 'standard') {
+        setPlayers(prev => {
+            const newPlayers = [...prev];
+            const np = new Player(newPlayers[pIdx].id, newPlayers[pIdx].name, newPlayers[pIdx].spendingPower);
+            np.deductFunds(hand.bet);
+            newPlayers[pIdx] = np;
+            return newPlayers;
+        });
+    }
     
     const splitCard = hand.cards.pop();
     
@@ -588,7 +726,16 @@ export const useGameEngine = (onRoundEnd) => {
     
     hand.status = 'surrender';
     if (gameMode === 'standard') {
-        setBankroll(prev => prev + (hand.bet / 2)); 
+        setPlayers(prev => {
+             const newPlayers = [...prev];
+             const pIdx = hand.spotIndex;
+             if (newPlayers[pIdx]) {
+                const np = new Player(newPlayers[pIdx].id, newPlayers[pIdx].name, newPlayers[pIdx].spendingPower);
+                np.addFunds(hand.bet / 2);
+                newPlayers[pIdx] = np;
+             }
+             return newPlayers;
+        });
     }
     hand.result = 'loss'; 
     advanceHand(updatedHands);
@@ -602,20 +749,33 @@ export const useGameEngine = (onRoundEnd) => {
       // The replace block seems to be covering the whole file mostly. I should include it.
       // Re-implement simplified:
       
-      let currentBankroll = bankroll;
+      let currentBankroll = 0; // Local var not used much now
+      // Insurance logic is tricky with multiple players. 
+      // Simplified: Assume Player 1 pays/receives for now as insurance is global modal.
       if (buy && gameMode === 'standard') {
           const insuranceCost = Math.floor(totalBet / 2);
-          if (currentBankroll >= insuranceCost) {
+          if (players[0].hasEnoughFunds(insuranceCost)) {
+             setPlayers(prev => {
+                 const np = new Player(prev[0].id, prev[0].name, prev[0].spendingPower);
+                 np.deductFunds(insuranceCost);
+                 const newArr = [...prev];
+                 newArr[0] = np;
+                 return newArr;
+             });
              setInsuranceBet(insuranceCost);
-             currentBankroll -= insuranceCost;
-             setBankroll(currentBankroll);
           }
       }
       
       const dHand = dealerHand;
       if (isBlackjack(dHand)) {
          if (buy && gameMode === 'standard') {
-             setBankroll(currentBankroll + (Math.floor(totalBet / 2) * 3)); 
+             setPlayers(prev => {
+                 const np = new Player(prev[0].id, prev[0].name, prev[0].spendingPower);
+                 np.addFunds(Math.floor(totalBet / 2) * 3);
+                 const newArr = [...prev];
+                 newArr[0] = np;
+                 return newArr;
+             });
              setMessage("Insurance Pays!");
          } else {
              setMessage("Dealer has Blackjack.");
@@ -729,22 +889,90 @@ export const useGameEngine = (onRoundEnd) => {
 
       if (gameMode === 'standard') {
           // ... Bankroll and Streak logic ...
-          if (roundWinnings > 0) setBankroll(prev => prev + roundWinnings);
+          if (roundWinnings > 0) {
+              setPlayers(prev => {
+                  const newPlayers = [...prev];
+                  finalHands.forEach(hand => {
+                      if (hand.payout > 0) {
+                          const pIdx = hand.spotIndex;
+                          if (newPlayers[pIdx]) {
+                              const np = new Player(newPlayers[pIdx].id, newPlayers[pIdx].name, newPlayers[pIdx].spendingPower);
+                              np.addFunds(hand.payout);
+                              newPlayers[pIdx] = np;
+                          }
+                      }
+                  });
+                  return newPlayers;
+              });
+          }
+          // Risk Free Refund (Player 1 context usually)
           else if (isRiskFree && roundWinnings === 0 && finalHands.every(h => h.result === 'loss')) {
                const totalLost = finalHands.reduce((acc, h) => acc + h.bet, 0);
-               setBankroll(prev => prev + totalLost);
+               setPlayers(prev => {
+                    // Refund to whoever bet? Or just Main?
+                    // Simplify: Refund to respective players
+                   const newPlayers = [...prev];
+                   finalHands.forEach(hand => {
+                       const pIdx = hand.spotIndex;
+                       if (newPlayers[pIdx]) {
+                           const np = new Player(newPlayers[pIdx].id, newPlayers[pIdx].name, newPlayers[pIdx].spendingPower);
+                           np.addFunds(hand.bet);
+                           newPlayers[pIdx] = np;
+                       }
+                   });
+                   return newPlayers;
+               });
                setMessage("Risk-Free Refunded!");
                setIsRiskFree(false);
           }
           
-          // History
-          const anyWin = finalHands.some(h => h.result === 'win');
-          setBetHistory(prev => [{
-              id: Date.now(),
-              result: anyWin ? 'Win' : 'Loss',
-              amount: roundWinnings,
-              date: new Date().toLocaleTimeString()
-          }, ...prev].slice(0, 10));
+
+          // History: Record per-player results
+          const timestamp = Date.now();
+          const newHistoryItems = [];
+          
+          // Group by player (spotIndex -> playerId)
+          // Assumption: spotIndex 0 -> Player 1, 1 -> Player 2, etc. (Matches initialization)
+          const playerRoundData = {};
+          
+          finalHands.forEach(h => {
+              const pIdx = h.spotIndex; 
+              // Only track if valid player exists
+              if (players[pIdx]) {
+                  const pId = players[pIdx].id;
+                  if (!playerRoundData[pId]) {
+                      playerRoundData[pId] = { bet: 0, payout: 0, results: [] };
+                  }
+                  playerRoundData[pId].bet += h.bet;
+                  playerRoundData[pId].payout += h.payout;
+                  playerRoundData[pId].results.push(h.result);
+              }
+          });
+
+          Object.keys(playerRoundData).forEach(pIdStr => {
+              const pId = parseInt(pIdStr);
+              const data = playerRoundData[pId];
+              const net = data.payout - data.bet;
+              
+              // Determine aggregate result string
+              // e.g. "Win (+$50)" or "Loss vs Dealer"
+              let resString = 'Push';
+              if (data.results.every(r => r === 'loss' || r === 'bust')) resString = 'Loss';
+              else if (data.results.some(r => r === 'blackjack')) resString = 'Blackjack';
+              else if (net > 0) resString = 'Win';
+              else if (net < 0) resString = 'Loss';
+              
+              newHistoryItems.push({
+                  id: `${timestamp}-${pId}`,
+                  playerId: pId,
+                  result: resString,
+                  amount: net,
+                  timestamp: timestamp,
+                  details: data.results.join(', ')
+              });
+          });
+
+          setBetHistory(prev => [...newHistoryItems, ...prev].slice(0, 50));
       }
 
       setPlayerHands(finalHands);
@@ -827,7 +1055,8 @@ export const useGameEngine = (onRoundEnd) => {
 
   return {
     gameState: {
-        bankroll,
+        players, 
+        bankroll: players[0] ? players[0].spendingPower : 0, // Legacy support for header if not updated yet
         activeSpots,
         currentBet: totalBet,
         playerCount,
