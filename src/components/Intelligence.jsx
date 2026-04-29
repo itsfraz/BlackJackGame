@@ -24,8 +24,8 @@ const IntelligencePanel = ({ data, onToggleMode }) => {
     const { learningMode, runningCount, trueCount } = data;
 
     return (
-        <div className="absolute top-[80px] left-[20px] bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 flex flex-col gap-2 z-50 shadow-xl transition-all hover:bg-black/70">
-            <div className="flex items-center gap-2 text-white/90 font-bold text-sm">
+        <div className="absolute top-[180px] md:top-[80px] left-[10px] md:left-[20px] bg-black/60 backdrop-blur-md p-2 md:p-3 rounded-xl border border-white/10 flex flex-col gap-1 md:gap-2 z-40 shadow-xl transition-all hover:bg-black/70 scale-90 md:scale-100 origin-top-left">
+            <div className="flex items-center gap-2 text-white/90 font-bold text-xs md:text-sm">
                 <label className="relative inline-block w-10 h-5">
                     <input 
                         type="checkbox" 

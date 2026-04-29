@@ -61,14 +61,14 @@ const BettingControls = ({
     <div className="relative w-full max-w-5xl mx-auto animate-slide-up origin-bottom">
       
       {/* 3 Betting Spots (Floating above controls) */}
-      <div className="absolute -top-48 md:-top-40 left-0 w-full flex justify-center items-center gap-4 md:gap-16 z-50 px-4 pointer-events-none">
+      <div className="absolute -top-36 md:-top-40 left-0 w-full flex justify-center items-center gap-2 md:gap-16 z-50 px-2 pointer-events-none">
           {activeSpots.map((spot, idx) => (
              <div 
                 key={`spot-${idx}`}
                 className="pointer-events-auto relative group"
                 onClick={() => handleSpotClick(idx)}
              >
-                <div className={`w-28 h-28 md:w-32 md:h-32 rounded-full border-4 border-dashed transition-all duration-200 flex justify-center items-center relative cursor-pointer shadow-lg
+                <div className={`w-20 h-20 md:w-32 md:h-32 rounded-full border-4 border-dashed transition-all duration-200 flex justify-center items-center relative cursor-pointer shadow-lg
                     ${spot.bet > 0 ? 'border-bj-gold bg-black/40 shadow-[0_0_20px_rgba(255,215,0,0.2)]' : 'border-white/20 hover:border-bj-gold/50 hover:bg-white/10 hover:scale-105 active:scale-95'}
                 `}>
                     {/* Spot Hint */}
@@ -88,7 +88,7 @@ const BettingControls = ({
                                       initial={{ opacity: 0, y: 100, scale: 0.5, rotate: Math.random() * 180 }} 
                                       animate={{ opacity: 1, y: -chipIdx * 4, scale: 1, rotate: 0 }} 
                                       exit={{ opacity: 0, scale: 0 }}
-                                      className={`absolute w-14 h-14 md:w-16 md:h-16 rounded-full border-2 border-white/20 shadow-xl ${getChipColor(val)}`}
+                                      className={`absolute w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-white/20 shadow-xl ${getChipColor(val)}`}
                                     />
                                 ))}
                                 <motion.div 
@@ -107,7 +107,7 @@ const BettingControls = ({
       </div>
 
       {/* Main Control Deck */}
-      <div className="bg-black/90 backdrop-blur-2xl border-t border-white/10 rounded-t-3xl shadow-[0_-10px_50px_rgba(0,0,0,0.8)] px-4 py-4 md:px-6 flex flex-col items-center gap-4 md:gap-6 relative overflow-visible mt-24 md:mt-0">
+      <div className="bg-black/90 backdrop-blur-2xl border-t border-white/10 rounded-t-3xl shadow-[0_-10px_50px_rgba(0,0,0,0.8)] px-2 py-4 md:px-6 flex flex-col items-center gap-4 md:gap-6 relative overflow-visible mt-20 md:mt-0 max-w-[100vw] mx-auto w-full">
           
           {/* Progress Bar */}
           <div className="absolute top-0 left-0 h-[3px] bg-gradient-to-r from-transparent via-bj-gold to-transparent opacity-50 w-full" />
@@ -117,13 +117,13 @@ const BettingControls = ({
           <div className="flex flex-col md:flex-row items-center justify-between w-full gap-4 md:gap-8">
               
               {/* Left: Chips Selection */}
-              <div className="flex flex-wrap justify-center gap-3 p-2 bg-white/5 rounded-2xl border border-white/5 shadow-inner">
+              <div className="flex flex-wrap justify-center gap-2 md:gap-3 p-1 md:p-2 bg-white/5 rounded-2xl border border-white/5 shadow-inner shrink-0">
                   {CHIPS.map(val => (
                     <button 
                       key={val} 
                       className={`
-                        w-12 h-12 md:w-14 md:h-14 rounded-full flex justify-center items-center font-black text-sm md:text-base transition-all 
-                        ${selectedChip === val ? 'scale-110 ring-4 ring-white/50 -translate-y-2 z-10' : 'hover:scale-105 opacity-80 hover:opacity-100'}
+                        w-10 h-10 md:w-14 md:h-14 rounded-full flex justify-center items-center font-black text-xs md:text-base transition-all 
+                        ${selectedChip === val ? 'scale-110 ring-4 ring-white/50 -translate-y-1 md:-translate-y-2 z-10' : 'hover:scale-105 opacity-80 hover:opacity-100'}
                         disabled:opacity-20 disabled:grayscale 
                         ${getChipColor(val)} ${val === 500 ? 'text-black' : 'text-white'}
                       `}
@@ -156,10 +156,10 @@ const BettingControls = ({
               </div>
 
               {/* Right: Actions */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3 flex-wrap justify-center w-full md:w-auto">
                   <Button 
                     variant="ghost"
-                    className="px-4 py-3 rounded-xl text-gray-400 font-bold text-xs uppercase tracking-wider hover:text-white hover:bg-white/5 disabled:opacity-30 h-auto" 
+                    className="px-2 md:px-4 py-2 md:py-3 rounded-xl text-gray-400 font-bold text-[10px] md:text-xs uppercase tracking-wider hover:text-white hover:bg-white/5 disabled:opacity-30 h-auto flex-1 md:flex-none" 
                     onClick={() => { if (onAction) onAction('medium'); onClear(); }} 
                     disabled={currentBet === 0 && sideBets.pairs === 0}
                   >
@@ -167,7 +167,7 @@ const BettingControls = ({
                   </Button>
                   <Button
                     variant="outline" 
-                    className="px-4 py-3 rounded-xl text-white font-bold text-xs uppercase tracking-wider border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40 h-auto disabled:opacity-30" 
+                    className="px-2 md:px-4 py-2 md:py-3 rounded-xl text-white font-bold text-[10px] md:text-xs uppercase tracking-wider border border-white/20 bg-white/5 hover:bg-white/10 hover:border-white/40 h-auto disabled:opacity-30 flex-1 md:flex-none" 
                     onClick={() => { if (onAction) onAction('medium'); onReBet(); }} 
                     onReBet
                   >
@@ -178,7 +178,7 @@ const BettingControls = ({
                   <Button 
                     variant="gold"
                     size="xl"
-                    className="ml-2 shadow-[0_0_20px_rgba(255,215,0,0.4)] hover:shadow-[0_0_30px_rgba(255,215,0,0.6)] min-w-[120px]" 
+                    className="ml-0 md:ml-2 shadow-[0_0_20px_rgba(255,215,0,0.4)] hover:shadow-[0_0_30px_rgba(255,215,0,0.6)] min-w-[100px] md:min-w-[120px] text-sm md:text-base py-3" 
                     onClick={onDeal} 
                     disabled={currentBet === 0}
                   >
